@@ -1,0 +1,12 @@
+pub mod backup;
+pub mod cassa;
+pub mod clienti;
+pub mod documenti;
+pub mod dashboard;
+pub mod fornitori;
+pub mod license;
+pub mod ordini;
+pub mod report;
+pub mod ricambi;
+pub mod ricerca;
+pub mod veicoli;

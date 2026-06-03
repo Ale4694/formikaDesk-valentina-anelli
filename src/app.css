@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media print {
+  #app-wrapper { display: none !important; }
+
+  /* Stampa fattura (default) */
+  #print-overlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 9999;
+    overflow: visible;
+  }
+
+  /* Stampa scontrino: nascondi fattura, mostra scontrino */
+  body.print-scontrino #print-overlay { display: none !important; }
+  body.print-scontrino #scontrino-print-overlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 9999;
+    overflow: visible;
+  }
+}
+
+@layer base {
+  body { @apply bg-gray-950 text-gray-100 font-sans antialiased; }
+  ::-webkit-scrollbar { @apply w-1.5; }
+  ::-webkit-scrollbar-track { @apply bg-gray-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-gray-700 rounded-full; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-brand-600 hover:bg-brand-500 text-white shadow-sm; }
+  .btn-secondary { @apply btn bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700; }
+  .btn-danger { @apply btn bg-red-900/50 hover:bg-red-800 text-red-300 border border-red-800; }
+  .card { @apply bg-gray-900 border border-gray-800 rounded-xl; }
+  .input { @apply bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent w-full; }
+  .label { @apply block text-xs font-medium text-gray-400 mb-1.5; }
+  .table-row-hover { @apply hover:bg-gray-800/50 transition-colors duration-100; }
+  .badge { @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium; }
+  .badge-green { @apply badge bg-green-900/50 text-green-400 border border-green-800/50; }
+  .badge-yellow { @apply badge bg-yellow-900/50 text-yellow-400 border border-yellow-800/50; }
+  .badge-red { @apply badge bg-red-900/50 text-red-400 border border-red-800/50; }
+  .badge-blue { @apply badge bg-blue-900/50 text-blue-400 border border-blue-800/50; }
+  .badge-gray { @apply badge bg-gray-800 text-gray-400 border border-gray-700; }
+}

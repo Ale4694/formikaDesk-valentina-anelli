@@ -1,0 +1,109 @@
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool};
+use std::str::FromStr;
+use tauri::Manager;
+
+mod commands;
+mod db;
+mod error;
+mod models;
+
+pub use error::AppError;
+
+pub struct AppState {
+    pub db: SqlitePool,
+}
+
+pub struct LicenseState {
+    pub valid: std::sync::Mutex<bool>,
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    env_logger::init();
+
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            let app_dir = app
+                .path()
+                .app_data_dir()
+                .expect("impossibile ottenere app_data_dir");
+            std::fs::create_dir_all(&app_dir)
+                .expect("impossibile creare la directory dati");
+
+            let is_licensed = commands::license::check_license_at_path(&app_dir);
+            app.manage(LicenseState {
+                valid: std::sync::Mutex::new(is_licensed),
+            });
+
+            let db_path = app_dir.join("autoparts.sqlite");
+            let db_url = format!("sqlite:{}", db_path.display());
+
+            let pool = tauri::async_runtime::block_on(async {
+                let options = SqliteConnectOptions::from_str(&db_url)
+                    .expect("stringa connessione non valida")
+                    .create_if_missing(true);
+
+                let pool = SqlitePool::connect_with(options)
+                    .await
+                    .expect("connessione DB fallita");
+
+                sqlx::migrate!("./migrations")
+                    .run(&pool)
+                    .await
+                    .expect("migrazione DB fallita");
+
+                pool
+            });
+
+            app.manage(AppState { db: pool });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::clienti::get_all_clienti,
+            commands::clienti::get_cliente,
+            commands::clienti::create_cliente,
+            commands::clienti::update_cliente,
+            commands::clienti::delete_cliente,
+            commands::ricambi::get_all_ricambi,
+            commands::ricambi::get_ricambio,
+            commands::ricambi::search_ricambi,
+            commands::ricambi::create_ricambio,
+            commands::ricambi::update_ricambio,
+            commands::ricambi::delete_ricambio,
+            commands::ricambi::aggiorna_giacenza,
+            commands::fornitori::get_all_fornitori,
+            commands::fornitori::create_fornitore,
+            commands::documenti::get_all_documenti,
+            commands::documenti::get_documento,
+            commands::documenti::create_documento,
+            commands::documenti::update_stato_documento,
+            commands::dashboard::get_dashboard_stats,
+            commands::ricerca::search_global,
+            commands::backup::export_ricambi_csv,
+            commands::backup::export_clienti_csv,
+            commands::backup::backup_database,
+            commands::backup::restore_database,
+            commands::license::get_machine_id,
+            commands::license::check_license,
+            commands::license::activate_license,
+            commands::license::deactivate_license,
+            commands::veicoli::get_veicoli_cliente,
+            commands::veicoli::create_veicolo,
+            commands::veicoli::update_veicolo,
+            commands::veicoli::delete_veicolo,
+            commands::ordini::get_all_ordini,
+            commands::ordini::create_ordine_fornitore,
+            commands::ordini::update_stato_ordine,
+            commands::report::get_report_mensile,
+            commands::report::get_scadenzario,
+            commands::cassa::get_all_scontrini,
+            commands::cassa::get_scontrino,
+            commands::cassa::cerca_ricambio_barcode,
+            commands::cassa::crea_scontrino,
+            commands::cassa::annulla_scontrino,
+        ])
+        .run(tauri::generate_context!())
+        .expect("errore durante l'avvio di Tauri");
+}
