@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @media print {
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
   #app-wrapper { display: none !important; }
 
   /* Stampa fattura (default) */

@@ -22,6 +22,9 @@
 </script>
 
 <div id="print-overlay">
+  <div class="pg-header">FormikaDesk</div>
+  <div class="pg-footer">FormikaDesk — Gestionale professionale</div>
+
   {#if $printData && doc}
     <div class="inv">
       <!-- Intestazione -->
@@ -262,5 +265,33 @@
     text-align: center;
     font-size: 8pt;
     color: #999;
+  }
+
+  :global(#print-overlay) .pg-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 2.5mm 1cm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    font-weight: 700;
+    color: #1a3a6b;
+    background: #fff;
+    border-bottom: 0.5pt solid #d0d8e8;
+  }
+
+  :global(#print-overlay) .pg-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 2mm 1cm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    color: #999;
+    background: #fff;
+    border-top: 0.5pt solid #d0d8e8;
+    text-align: center;
   }
 </style>
