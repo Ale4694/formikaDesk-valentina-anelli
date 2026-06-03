@@ -113,6 +113,10 @@ export interface Documento {
   updated_at: string
   scadenza_pagamento: string | null
   giorni_pagamento: number | null
+  data_pagamento: string | null
+  metodo_pagamento: string | null
+  riferimento_pagamento: string | null
+  note_pagamento: string | null
 }
 
 export interface RigaDocumento {

@@ -49,7 +49,16 @@ export const api = {
     getAll: () => call<Documento[]>('get_all_documenti'),
     get: (id: number) => call<DocumentoCompleto>('get_documento', { id }),
     create: (doc: NuovoDocumento) => call<DocumentoCompleto>('create_documento', { doc }),
-    updateStato: (id: number, stato: string) => call<Documento>('update_stato_documento', { id, stato }),
+    updateStato: (
+      id: number,
+      stato: string,
+      pagamento?: {
+        data_pagamento?: string | null
+        metodo_pagamento?: string | null
+        riferimento_pagamento?: string | null
+        note_pagamento?: string | null
+      }
+    ) => call<Documento>('update_stato_documento', { id, stato, ...pagamento }),
     getScadenzario: () => call<ScadenzaDocumento[]>('get_scadenzario'),
   },
   ricerca: {

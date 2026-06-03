@@ -122,6 +122,10 @@ pub struct Documento {
     pub updated_at: String,
     pub scadenza_pagamento: Option<String>,
     pub giorni_pagamento: Option<i64>,
+    pub data_pagamento: Option<String>,
+    pub metodo_pagamento: Option<String>,
+    pub riferimento_pagamento: Option<String>,
+    pub note_pagamento: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

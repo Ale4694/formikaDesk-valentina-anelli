@@ -3,8 +3,13 @@
   import { documenti, clienti, formatCurrency, formatDate, setError, currentView, printData } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { Documento } from '../../lib/types'
+  import PagamentoModal from '../PagamentoModal.svelte'
 
   const dispatch = createEventDispatcher()
+
+  let showPagamentoModal = false
+  let pagamentoDocId: number | null = null
+  let pagamentoDocNumero = ''
 
   const statoBadge: Record<string, string> = {
     bozza: 'badge-gray', confermato: 'badge-blue', pagato: 'badge-green', annullato: 'badge-red'
@@ -56,6 +61,27 @@
     } catch (e: any) { setError(e?.message ?? 'Errore') }
   }
 
+  function apriPagamento(doc: Documento) {
+    pagamentoDocId = doc.id
+    pagamentoDocNumero = doc.numero
+    showPagamentoModal = true
+  }
+
+  async function confermaPagamento(e: CustomEvent<{
+    data_pagamento: string
+    metodo_pagamento: string
+    riferimento_pagamento: string | null
+    note_pagamento: string | null
+  }>) {
+    if (pagamentoDocId === null) return
+    showPagamentoModal = false
+    try {
+      const updated = await api.documenti.updateStato(pagamentoDocId, 'pagato', e.detail)
+      documenti.update(list => list.map(d => d.id === updated.id ? updated : d))
+    } catch (err: any) { setError(err?.message ?? 'Errore registrazione pagamento') }
+    pagamentoDocId = null
+  }
+
   async function stampa(id: number) {
     try {
       const doc = await api.documenti.get(id)
@@ -67,6 +93,13 @@
     }
   }
 </script>
+
+<PagamentoModal
+  show={showPagamentoModal}
+  numeroDocumento={pagamentoDocNumero}
+  on:conferma={confermaPagamento}
+  on:annulla={() => { showPagamentoModal = false; pagamentoDocId = null }}
+/>
 
 <div class="p-6 space-y-4">
   <div class="flex items-center justify-between">
@@ -130,7 +163,7 @@
                 {#if d.stato === 'bozza'}
                   <button class="btn-secondary text-xs px-2 py-1" on:click={() => cambiaStato(d.id, 'confermato')}>Conferma</button>
                 {:else if d.stato === 'confermato'}
-                  <button class="btn-secondary text-xs px-2 py-1" on:click={() => cambiaStato(d.id, 'pagato')}>Pagato</button>
+                  <button class="btn-secondary text-xs px-2 py-1 text-green-400" on:click={() => apriPagamento(d)}>Segna pagato</button>
                 {/if}
                 <button
                   class="btn-secondary text-xs px-2 py-1 flex items-center gap-1"

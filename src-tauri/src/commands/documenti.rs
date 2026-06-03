@@ -145,20 +145,41 @@ pub async fn create_documento(
 pub async fn update_stato_documento(
     id: i64,
     stato: String,
+    data_pagamento: Option<String>,
+    metodo_pagamento: Option<String>,
+    riferimento_pagamento: Option<String>,
+    note_pagamento: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Documento, AppError> {
     let stati_validi = ["bozza", "confermato", "pagato", "annullato"];
     if !stati_validi.contains(&stato.as_str()) {
         return Err(AppError::Validation(format!("stato '{}' non valido", stato)));
     }
-    let rows = sqlx::query(
-        "UPDATE documenti SET stato=?, updated_at=datetime('now') WHERE id=?",
-    )
-    .bind(&stato)
-    .bind(id)
-    .execute(&state.db)
-    .await?
-    .rows_affected();
+
+    let rows = if stato == "pagato" {
+        sqlx::query(
+            "UPDATE documenti SET stato=?, data_pagamento=?, metodo_pagamento=?, \
+             riferimento_pagamento=?, note_pagamento=?, updated_at=datetime('now') WHERE id=?",
+        )
+        .bind(&stato)
+        .bind(&data_pagamento)
+        .bind(&metodo_pagamento)
+        .bind(&riferimento_pagamento)
+        .bind(&note_pagamento)
+        .bind(id)
+        .execute(&state.db)
+        .await?
+        .rows_affected()
+    } else {
+        sqlx::query(
+            "UPDATE documenti SET stato=?, updated_at=datetime('now') WHERE id=?",
+        )
+        .bind(&stato)
+        .bind(id)
+        .execute(&state.db)
+        .await?
+        .rows_affected()
+    };
 
     if rows == 0 {
         return Err(AppError::NotFound(format!("documento id={id} non trovato")));

@@ -98,6 +98,18 @@
         </tfoot>
       </table>
 
+      {#if doc.data_pagamento || doc.metodo_pagamento}
+        <div class="inv-pag">
+          <div class="inv-pag-title">Pagamento registrato</div>
+          <div class="inv-pag-row">
+            {#if doc.data_pagamento}<span><strong>Data:</strong> {formatDate(doc.data_pagamento)}</span>{/if}
+            {#if doc.metodo_pagamento}<span><strong>Metodo:</strong> {doc.metodo_pagamento}</span>{/if}
+            {#if doc.riferimento_pagamento}<span><strong>Riferimento:</strong> {doc.riferimento_pagamento}</span>{/if}
+          </div>
+          {#if doc.note_pagamento}<div class="inv-pag-note">{doc.note_pagamento}</div>{/if}
+        </div>
+      {/if}
+
       {#if doc.note}
         <div class="inv-note">
           <span class="inv-note-label">Note:</span> {doc.note}
@@ -246,6 +258,38 @@
     font-weight: 700;
     font-size: 13pt;
     color: #1a3a6b;
+  }
+
+  :global(#print-overlay) .inv-pag {
+    margin-top: 5mm;
+    padding: 2.5mm 3mm;
+    border: 0.5pt solid #22c55e;
+    border-left: 3pt solid #22c55e;
+    background: #f0fdf4;
+    border-radius: 1mm;
+    font-size: 9.5pt;
+  }
+
+  :global(#print-overlay) .inv-pag-title {
+    font-weight: 700;
+    font-size: 9pt;
+    color: #15803d;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 1mm;
+  }
+
+  :global(#print-overlay) .inv-pag-row {
+    display: flex;
+    gap: 6mm;
+    flex-wrap: wrap;
+    color: #222;
+  }
+
+  :global(#print-overlay) .inv-pag-note {
+    margin-top: 1mm;
+    color: #555;
+    font-size: 9pt;
   }
 
   :global(#print-overlay) .inv-note {
