@@ -279,83 +279,54 @@ pub async fn genera_fattura_pa(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<String, AppError> {
-    eprintln!("[fattura_pa] START genera_fattura_pa documento_id={documento_id}");
-
-    // Fetch documento completo
     let documento = sqlx::query_as::<_, crate::models::Documento>(
         "SELECT * FROM documenti WHERE id=?",
     )
     .bind(documento_id)
     .fetch_optional(&state.db)
-    .await
-    .map_err(|e| { eprintln!("[fattura_pa] ERR fetch documento: {e}"); AppError::Database(e.to_string()) })?
-    .ok_or_else(|| {
-        let msg = format!("documento id={documento_id} non trovato");
-        eprintln!("[fattura_pa] ERR {msg}");
-        AppError::NotFound(msg)
-    })?;
-
-    eprintln!("[fattura_pa] documento caricato: numero={}", documento.numero);
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("documento id={documento_id} non trovato")))?;
 
     let righe = sqlx::query_as::<_, RigaDocumento>(
         "SELECT * FROM righe_documento WHERE documento_id=? ORDER BY ordine ASC",
     )
     .bind(documento_id)
     .fetch_all(&state.db)
-    .await
-    .map_err(|e| { eprintln!("[fattura_pa] ERR fetch righe: {e}"); AppError::Database(e.to_string()) })?;
-
-    eprintln!("[fattura_pa] righe caricate: {}", righe.len());
+    .await?;
 
     let doc_completo = DocumentoCompleto { documento, righe };
 
-    // Fetch cliente se presente
     let cliente: Option<Cliente> = if let Some(cid) = doc_completo.documento.cliente_id {
-        eprintln!("[fattura_pa] fetch cliente id={cid}");
         sqlx::query_as::<_, Cliente>("SELECT * FROM clienti WHERE id=?")
             .bind(cid)
             .fetch_optional(&state.db)
-            .await
-            .map_err(|e| { eprintln!("[fattura_pa] ERR fetch cliente: {e}"); AppError::Database(e.to_string()) })?
+            .await?
     } else {
-        eprintln!("[fattura_pa] nessun cliente associato");
         None
     };
 
-    // Fetch impostazioni azienda
-    eprintln!("[fattura_pa] fetch impostazioni...");
     let rows = sqlx::query_as::<_, ImpostazioneRow>("SELECT chiave, valore FROM impostazioni")
         .fetch_all(&state.db)
-        .await
-        .map_err(|e| { eprintln!("[fattura_pa] ERR fetch impostazioni: {e}"); AppError::Database(e.to_string()) })?;
-
-    eprintln!("[fattura_pa] impostazioni caricate: {} righe", rows.len());
+        .await?;
     let imp: HashMap<String, String> = rows.into_iter().map(|r| (r.chiave, r.valore)).collect();
 
     let piva = imp.get("partita_iva").map(|s| s.as_str()).unwrap_or("");
-    eprintln!("[fattura_pa] partita_iva='{piva}'");
     if piva.is_empty() {
-        let msg = "Partita IVA azienda non configurata. Vai in Impostazioni per compilarla.".to_string();
-        eprintln!("[fattura_pa] ERR {msg}");
-        return Err(AppError::Validation(msg));
+        return Err(AppError::Validation(
+            "Partita IVA azienda non configurata. Vai in Impostazioni per compilarla.".into(),
+        ));
     }
 
-    // Genera XML
-    eprintln!("[fattura_pa] build_xml...");
     let xml = build_xml(&doc_completo, cliente.as_ref(), &imp);
-    eprintln!("[fattura_pa] XML generato ({} bytes)", xml.len());
 
-    // Salva file
     let app_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| { let m = e.to_string(); eprintln!("[fattura_pa] ERR app_data_dir: {m}"); AppError::Internal(m) })?;
-
-    eprintln!("[fattura_pa] app_data_dir={}", app_dir.display());
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let fatture_dir = app_dir.join("fatture_pa");
     std::fs::create_dir_all(&fatture_dir)
-        .map_err(|e| { let m = format!("Errore creazione directory: {e}"); eprintln!("[fattura_pa] ERR {m}"); AppError::Internal(m) })?;
+        .map_err(|e| AppError::Internal(format!("Errore creazione directory: {e}")))?;
 
     let anno = doc_completo.documento.data.get(..4).unwrap_or("0000");
     let numero_safe = doc_completo
@@ -365,10 +336,8 @@ pub async fn genera_fattura_pa(
     let filename = format!("FPA_{}_{}.xml", anno, numero_safe);
     let file_path = fatture_dir.join(&filename);
 
-    eprintln!("[fattura_pa] scrittura file: {}", file_path.display());
     std::fs::write(&file_path, xml.as_bytes())
-        .map_err(|e| { let m = format!("Errore scrittura file: {e}"); eprintln!("[fattura_pa] ERR {m}"); AppError::Internal(m) })?;
+        .map_err(|e| AppError::Internal(format!("Errore scrittura file: {e}")))?;
 
-    eprintln!("[fattura_pa] SUCCESS file_path={}", file_path.display());
     Ok(file_path.display().to_string())
 }
