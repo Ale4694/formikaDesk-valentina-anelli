@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, tick } from 'svelte'
-  import { documenti, clienti, formatCurrency, formatDate, setError, currentView, printData } from '../../lib/stores'
+  import { documenti, clienti, formatCurrency, formatDate, setError, setSuccess, currentView, printData } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { Documento } from '../../lib/types'
   import PagamentoModal from '../PagamentoModal.svelte'
@@ -92,6 +92,18 @@
       setError(e?.message ?? 'Errore stampa')
     }
   }
+
+  async function generaXmlFatturaPa(id: number) {
+    try {
+      const filePath = await api.fatturaPa.genera(id)
+      if (filePath) {
+        setSuccess(`XML salvato in: ${filePath}`)
+      }
+    } catch (e: any) {
+      const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e)) || 'Errore generazione XML FatturaPA'
+      setError(msg)
+    }
+  }
 </script>
 
 <PagamentoModal
@@ -176,6 +188,19 @@
                   </svg>
                   PDF
                 </button>
+                {#if d.tipo_documento === 'fattura' || d.tipo_documento === 'nota_credito'}
+                  <button
+                    class="btn-secondary text-xs px-2 py-1 flex items-center gap-1 text-yellow-400 hover:text-yellow-300"
+                    title="Genera XML FatturaPA"
+                    on:click={() => generaXmlFatturaPa(d.id)}
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                    </svg>
+                    XML FatturaPA
+                  </button>
+                {/if}
               </div>
             </td>
           </tr>

@@ -103,6 +103,9 @@ pub fn run() {
             commands::cassa::cerca_ricambio_barcode,
             commands::cassa::crea_scontrino,
             commands::cassa::annulla_scontrino,
+            commands::impostazioni::get_impostazioni,
+            commands::impostazioni::save_impostazioni,
+            commands::fattura_pa::genera_fattura_pa,
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Tauri");

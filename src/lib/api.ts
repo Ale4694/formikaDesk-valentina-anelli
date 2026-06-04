@@ -9,6 +9,7 @@ import type {
   OrdineCompleto, NuovoOrdineFornitore,
   ReportMensile, ScadenzaDocumento,
   ScontrinoCompleto, NuovoScontrino,
+  Impostazioni,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -96,5 +97,12 @@ export const api = {
     cercaBarcode: (codice: string) => call<Ricambio | null>('cerca_ricambio_barcode', { codice }),
     crea: (scontrino: NuovoScontrino) => call<ScontrinoCompleto>('crea_scontrino', { scontrino }),
     annulla: (id: number) => call<ScontrinoCompleto>('annulla_scontrino', { id }),
+  },
+  impostazioni: {
+    get: () => call<Impostazioni>('get_impostazioni'),
+    save: (impostazioni: Impostazioni) => call<void>('save_impostazioni', { impostazioni }),
+  },
+  fatturaPa: {
+    genera: (documentoId: number) => call<string>('genera_fattura_pa', { documentoId }),
   },
 }

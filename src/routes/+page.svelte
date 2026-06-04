@@ -17,6 +17,7 @@
   import Scadenzario from '../components/views/Scadenzario.svelte'
   import Cassa from '../components/views/Cassa.svelte'
   import StoricoCassa from '../components/views/StoricoCassa.svelte'
+  import Impostazioni from '../components/views/Impostazioni.svelte'
 
   async function loadAll() {
     isLoading.set(true)
@@ -112,6 +113,8 @@
         <Cassa />
       {:else if $currentView === 'storico-cassa'}
         <StoricoCassa />
+      {:else if $currentView === 'impostazioni'}
+        <Impostazioni />
       {/if}
     </main>
   </div>

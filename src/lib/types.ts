@@ -191,6 +191,20 @@ export type View =
   | 'scadenzario'
   | 'cassa'
   | 'storico-cassa'
+  | 'impostazioni'
+
+export interface Impostazioni {
+  ragione_sociale: string
+  partita_iva: string
+  codice_fiscale: string
+  indirizzo: string
+  cap: string
+  citta: string
+  provincia: string
+  codice_destinatario: string
+  regime_fiscale: string
+  [key: string]: string
+}
 
 export interface RisultatoRicerca {
   tipo: 'cliente' | 'ricambio' | 'documento'
