@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
   import { api } from '../lib/api'
-  import { licenseValid, setSuccess, setError } from '../lib/stores'
+  import { licenseValid, licenseInfo, setSuccess, setError } from '../lib/stores'
 
   const dispatch = createEventDispatcher<{ close: void; deactivated: void }>()
 
@@ -27,6 +27,7 @@
     try {
       await api.license.deactivateLicense()
       licenseValid.set(false)
+      licenseInfo.set(null)
       setSuccess('Licenza disattivata')
       dispatch('deactivated')
       dispatch('close')
@@ -109,6 +110,22 @@
               </span>
             {/if}
           </div>
+          {#if $licenseInfo?.tipo && $licenseInfo.tipo !== 'none'}
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-400">Tipo</span>
+              <span class="text-xs text-gray-300 font-medium">
+                {$licenseInfo.tipo === 'permanent' ? 'Permanente' : 'Demo'}
+              </span>
+            </div>
+          {/if}
+          {#if $licenseInfo?.tipo === 'demo' && $licenseInfo.scadenza}
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-400">Scadenza</span>
+              <span class="text-xs text-yellow-400 font-medium">
+                {$licenseInfo.scadenza} ({$licenseInfo.giorni_rimanenti} giorni rimanenti)
+              </span>
+            </div>
+          {/if}
 
           <div>
             <p class="text-xs text-gray-400 mb-1">ID dispositivo</p>

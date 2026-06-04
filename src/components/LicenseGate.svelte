@@ -1,8 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
   import { api } from '../lib/api'
+  import type { LicenseInfo } from '../lib/types'
 
   const dispatch = createEventDispatcher<{ activated: void }>()
+
+  export let licenseInfoData: LicenseInfo | null = null
 
   let chiave = ''
   let machineId = ''
@@ -76,55 +79,71 @@
       <p class="text-sm text-gray-500 mt-1">Gestionale</p>
     </div>
 
-    <!-- Card attivazione -->
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl">
-      <h2 class="text-lg font-semibold text-white mb-1">Attivazione licenza</h2>
-      <p class="text-sm text-gray-400 mb-5">
-        Inserisci la chiave di licenza per attivare il software.
-      </p>
-
-      <div class="space-y-4">
-        <div>
-          <label for="license-key" class="block text-xs font-medium text-gray-400 mb-1.5">
-            Chiave di licenza
-          </label>
-          <input
-            id="license-key"
-            type="text"
-            value={chiave}
-            on:input={handleInput}
-            on:keydown={handleKeydown}
-            placeholder="XXXX-XXXX-XXXX-XXXX"
-            maxlength="19"
-            spellcheck="false"
-            autocomplete="off"
-            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white
-              placeholder-gray-600 text-sm font-mono tracking-widest
-              focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500
-              {errore ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : ''}"
-          />
-          {#if errore}
-            <p class="mt-1.5 text-xs text-red-400">{errore}</p>
-          {/if}
+    {#if licenseInfoData?.tipo === 'demo' && !licenseInfoData?.valid}
+      <!-- Demo scaduta -->
+      <div class="bg-red-950 border border-red-700 rounded-xl p-6 shadow-xl space-y-3">
+        <div class="flex items-center gap-2 text-red-400">
+          <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <h2 class="text-base font-semibold">Licenza demo scaduta</h2>
         </div>
-
-        <button
-          on:click={attiva}
-          disabled={loading}
-          class="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed
-            text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors duration-100"
-        >
-          {#if loading}
-            <span class="flex items-center justify-center gap-2">
-              <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-              Verifica in corso…
-            </span>
-          {:else}
-            Attiva licenza
-          {/if}
-        </button>
+        <p class="text-sm text-red-300 leading-relaxed">
+          La tua licenza demo di 15 giorni è scaduta. Contatta Alessandro Formica per acquistare la licenza completa:
+        </p>
+        <p class="text-sm font-semibold text-red-200">+39 320 456 2042</p>
       </div>
-    </div>
+    {:else}
+      <!-- Card attivazione -->
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl">
+        <h2 class="text-lg font-semibold text-white mb-1">Attivazione licenza</h2>
+        <p class="text-sm text-gray-400 mb-5">
+          Inserisci la chiave di licenza per attivare il software.
+        </p>
+
+        <div class="space-y-4">
+          <div>
+            <label for="license-key" class="block text-xs font-medium text-gray-400 mb-1.5">
+              Chiave di licenza
+            </label>
+            <input
+              id="license-key"
+              type="text"
+              value={chiave}
+              on:input={handleInput}
+              on:keydown={handleKeydown}
+              placeholder="XXXX-XXXX-XXXX-XXXX"
+              maxlength="19"
+              spellcheck="false"
+              autocomplete="off"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white
+                placeholder-gray-600 text-sm font-mono tracking-widest
+                focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500
+                {errore ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : ''}"
+            />
+            {#if errore}
+              <p class="mt-1.5 text-xs text-red-400">{errore}</p>
+            {/if}
+          </div>
+
+          <button
+            on:click={attiva}
+            disabled={loading}
+            class="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed
+              text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors duration-100"
+          >
+            {#if loading}
+              <span class="flex items-center justify-center gap-2">
+                <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                Verifica in corso…
+              </span>
+            {:else}
+              Attiva licenza
+            {/if}
+          </button>
+        </div>
+      </div>
+    {/if}
 
     <!-- Machine ID -->
     <div class="mt-4 bg-gray-900 border border-gray-800 rounded-xl p-4">

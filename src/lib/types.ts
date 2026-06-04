@@ -179,6 +179,13 @@ export interface AppError {
   message: string
 }
 
+export interface LicenseInfo {
+  valid: boolean
+  tipo: 'none' | 'permanent' | 'demo'
+  scadenza: string | null
+  giorni_rimanenti: number | null
+}
+
 export type View =
   | 'dashboard'
   | 'magazzino'

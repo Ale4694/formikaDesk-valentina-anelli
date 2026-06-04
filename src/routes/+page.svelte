@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { currentView, globalError, globalSuccess, isLoading, clienti, fornitori, ricambi, documenti, dashboardStats, setError, searchOpen, licenseValid } from '$lib/stores'
+  import { currentView, globalError, globalSuccess, isLoading, clienti, fornitori, ricambi, documenti, dashboardStats, setError, searchOpen, licenseValid, licenseInfo } from '$lib/stores'
   import { api } from '$lib/api'
   import Sidebar from '../components/Sidebar.svelte'
   import Dashboard from '../components/views/Dashboard.svelte'
@@ -42,7 +42,9 @@
   }
 
   async function onLicenseActivated() {
-    licenseValid.set(true)
+    const info = await api.license.checkLicense()
+    licenseInfo.set(info)
+    licenseValid.set(info.valid)
     await loadAll()
   }
 
@@ -54,9 +56,10 @@
   }
 
   onMount(async () => {
-    const valid = await api.license.checkLicense()
-    licenseValid.set(valid)
-    if (valid) {
+    const info = await api.license.checkLicense()
+    licenseInfo.set(info)
+    licenseValid.set(info.valid)
+    if (info.valid) {
       await loadAll()
     }
   })
@@ -69,9 +72,15 @@
     <div class="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
   </div>
 {:else if !$licenseValid}
-  <LicenseGate on:activated={onLicenseActivated} />
+  <LicenseGate licenseInfoData={$licenseInfo} on:activated={onLicenseActivated} />
 {:else}
-  <div id="app-wrapper" class="flex h-screen overflow-hidden bg-gray-950">
+  <div class="flex flex-col h-screen overflow-hidden bg-gray-950">
+    {#if $licenseInfo?.tipo === 'demo'}
+      <div class="shrink-0 bg-yellow-900 border-b border-yellow-700 text-yellow-200 px-4 py-1.5 text-xs text-center font-medium">
+        Licenza demo — scade il {$licenseInfo.scadenza} ({$licenseInfo.giorni_rimanenti} giorni rimanenti su 15)
+      </div>
+    {/if}
+    <div id="app-wrapper" class="flex flex-1 min-h-0">
     <Sidebar />
     <main class="flex-1 overflow-y-auto">
       {#if $globalError}
@@ -117,6 +126,7 @@
         <Impostazioni />
       {/if}
     </main>
+  </div>
   </div>
 
   <PrintOverlay />

@@ -9,7 +9,7 @@ import type {
   OrdineCompleto, NuovoOrdineFornitore,
   ReportMensile, ScadenzaDocumento,
   ScontrinoCompleto, NuovoScontrino,
-  Impostazioni,
+  Impostazioni, LicenseInfo,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -73,8 +73,8 @@ export const api = {
   },
   license: {
     getMachineId: () => call<string>('get_machine_id'),
-    checkLicense: () => call<boolean>('check_license'),
-    activateLicense: (chiave: string) => call<boolean>('activate_license', { chiave }),
+    checkLicense: () => call<LicenseInfo>('check_license'),
+    activateLicense: (chiave: string) => call<LicenseInfo>('activate_license', { chiave }),
     deactivateLicense: () => call<void>('deactivate_license'),
   },
   veicoli: {

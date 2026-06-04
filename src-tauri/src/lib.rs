@@ -14,7 +14,7 @@ pub struct AppState {
 }
 
 pub struct LicenseState {
-    pub valid: std::sync::Mutex<bool>,
+    pub info: std::sync::Mutex<commands::license::LicenseInfo>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -32,9 +32,9 @@ pub fn run() {
             std::fs::create_dir_all(&app_dir)
                 .expect("impossibile creare la directory dati");
 
-            let is_licensed = commands::license::check_license_at_path(&app_dir);
+            let license_info = commands::license::check_license_at_path(&app_dir);
             app.manage(LicenseState {
-                valid: std::sync::Mutex::new(is_licensed),
+                info: std::sync::Mutex::new(license_info),
             });
 
             let db_path = app_dir.join("autoparts.sqlite");
