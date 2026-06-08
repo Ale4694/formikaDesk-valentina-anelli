@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
   import { api } from '../lib/api'
-  import { licenseValid, licenseInfo, setSuccess, setError } from '../lib/stores'
+  import { getVersion } from '@tauri-apps/api/app'
+  import { licenseValid, licenseInfo, setSuccess, setError, appConfig } from '../lib/stores'
 
   const dispatch = createEventDispatcher<{ close: void; deactivated: void }>()
 
@@ -11,10 +12,12 @@
   let licensed = false
   let copiato = false
   let confirmDisattiva = false
+  let appVersion = ''
 
   $: if (open) {
     licensed = $licenseValid ?? false
     loadMachineId()
+    getVersion().then(v => { appVersion = v }).catch(() => {})
   }
 
   async function loadMachineId() {
@@ -89,8 +92,8 @@
             </svg>
           </div>
           <div>
-            <p class="text-white font-semibold">AutoParts Gestionale</p>
-            <p class="text-xs text-gray-500">Versione 0.1.0</p>
+            <p class="text-white font-semibold">{$appConfig?.nome_attivita ?? 'FormikaDesk'}</p>
+            <p class="text-xs text-gray-500">{appVersion ? 'Versione ' + appVersion : ''}</p>
           </div>
         </div>
 

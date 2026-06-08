@@ -62,16 +62,16 @@
   }
 
   onMount(async () => {
+    try {
+      const cfg = await api.config.get()
+      appConfig.set(cfg)
+    } catch {
+      // config non critica, usa defaults
+    }
     const info = await api.license.checkLicense()
     licenseInfo.set(info)
     licenseValid.set(info.valid)
     if (info.valid) {
-      try {
-        const cfg = await api.config.get()
-        appConfig.set(cfg)
-      } catch {
-        // config non critica, usa defaults
-      }
       await loadAll()
       try {
         currentVersion = await getVersion()

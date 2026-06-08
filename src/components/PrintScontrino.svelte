@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ScontrinoCompleto } from '../lib/types'
-  import { formatCurrency } from '../lib/stores'
+  import { formatCurrency, appConfig } from '../lib/stores'
 
   export let scontrino: ScontrinoCompleto | null = null
 
@@ -48,7 +48,7 @@
 
       <!-- Intestazione -->
       <div style="text-align:center; margin-bottom:4px">
-        <div style="font-size:16px; font-weight:bold">AutoParts</div>
+        <div style="font-size:16px; font-weight:bold">{$appConfig?.nome_attivita ?? 'FormikaDesk'}</div>
         <div style="font-size:10px">Gestionale Ricambi Auto</div>
       </div>
       <div style="text-align:center; font-size:10px; margin-bottom:4px">

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte'
   import { api } from '../lib/api'
+  import { appConfig } from '../lib/stores'
   import type { LicenseInfo } from '../lib/types'
 
   const dispatch = createEventDispatcher<{ activated: void }>()
@@ -75,8 +76,7 @@
             d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
       </div>
-      <h1 class="text-2xl font-bold text-white">AutoParts</h1>
-      <p class="text-sm text-gray-500 mt-1">Gestionale</p>
+      <h1 class="text-2xl font-bold text-white">{$appConfig?.nome_attivita ?? 'FormikaDesk'}</h1>
     </div>
 
     {#if licenseInfoData?.tipo === 'demo' && !licenseInfoData?.valid}

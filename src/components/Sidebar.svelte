@@ -1,7 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { currentView, ricambiSottoScorta, searchOpen, setError, setSuccess, appConfig } from '../lib/stores'
   import { api } from '../lib/api'
+  import { getVersion } from '@tauri-apps/api/app'
   import type { View } from '../lib/types'
+
+  let appVersion = ''
+  onMount(async () => {
+    try { appVersion = await getVersion() } catch {}
+  })
   import ConfirmModal from './ConfirmModal.svelte'
   import AboutModal from './AboutModal.svelte'
 
@@ -179,7 +186,7 @@
       {/if}
     </button>
     {#if !collapsed}
-      <p class="text-xs text-gray-700 px-3">v0.1.0 — MVP</p>
+      <p class="text-xs text-gray-700 px-3">{appVersion ? 'v' + appVersion : ''}</p>
     {/if}
   </div>
 </aside>

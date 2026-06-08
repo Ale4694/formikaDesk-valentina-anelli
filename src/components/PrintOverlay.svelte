@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { printData, clienti, fornitori, formatCurrency, formatDate } from '../lib/stores'
+  import { printData, clienti, fornitori, formatCurrency, formatDate, appConfig } from '../lib/stores'
 
   const tipoLabel: Record<string, string> = {
     fattura: 'FATTURA', preventivo: 'PREVENTIVO',
@@ -22,15 +22,15 @@
 </script>
 
 <div id="print-overlay">
-  <div class="pg-header">FormikaDesk</div>
-  <div class="pg-footer">FormikaDesk — Gestionale professionale</div>
+  <div class="pg-header">{$appConfig?.nome_attivita ?? 'FormikaDesk'}</div>
+  <div class="pg-footer">{$appConfig?.nome_attivita ?? 'FormikaDesk'} — Gestionale professionale</div>
 
   {#if $printData && doc}
     <div class="inv">
       <!-- Intestazione -->
       <div class="inv-head">
         <div class="inv-company">
-          <div class="inv-company-name">AutoParts Gestionale</div>
+          <div class="inv-company-name">{$appConfig?.nome_attivita ?? 'FormikaDesk'}</div>
           <div class="inv-company-sub">Ricambi Auto</div>
         </div>
         <div class="inv-meta">
