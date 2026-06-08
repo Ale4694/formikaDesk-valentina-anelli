@@ -1,5 +1,5 @@
 {
-  "nome_attivita": "AutoParts Gestionale",
+  "nome_attivita": "Pippo Anelli Autoricambi",
   "tipo": "officina",
   "moduli": ["magazzino", "clienti", "veicoli", "fornitori", "documenti", "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"],
   "vocabolario": {
