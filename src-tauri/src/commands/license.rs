@@ -1,7 +1,54 @@
-use chrono::{Duration, Local, NaiveDate};
+use chrono::{Local, NaiveDate};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tauri::Manager;
+
+const BASE36: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+fn to_base36(mut n: u64, width: usize) -> String {
+    let mut digits: Vec<u8> = Vec::new();
+    if n == 0 {
+        digits.push(b'0');
+    }
+    while n > 0 {
+        digits.push(BASE36[(n % 36) as usize]);
+        n /= 36;
+    }
+    while digits.len() < width {
+        digits.push(b'0');
+    }
+    digits.reverse();
+    String::from_utf8(digits).unwrap()
+}
+
+fn from_base36(s: &str) -> Result<u64, String> {
+    let mut n: u64 = 0;
+    for c in s.chars() {
+        let d: u64 = match c {
+            '0'..='9' => (c as u64) - ('0' as u64),
+            'A'..='Z' => (c as u64) - ('A' as u64) + 10,
+            'a'..='z' => (c as u64) - ('a' as u64) + 10,
+            _ => return Err(format!("Carattere non valido nella chiave: {c}")),
+        };
+        n = n.checked_mul(36).and_then(|v| v.checked_add(d))
+            .ok_or_else(|| "Overflow nella decodifica della chiave".to_string())?;
+    }
+    Ok(n)
+}
+
+pub fn encode_date(date: NaiveDate) -> (String, String) {
+    let n: u64 = date.format("%Y%m%d").to_string().parse().unwrap();
+    let b36 = to_base36(n, 8);
+    (b36[..4].to_string(), b36[4..].to_string())
+}
+
+fn decode_date(yyyy: &str, zzzz: &str) -> Result<NaiveDate, String> {
+    let combined = format!("{}{}", yyyy.to_uppercase(), zzzz.to_uppercase());
+    let n = from_base36(&combined)?;
+    let date_str = format!("{:08}", n);
+    NaiveDate::parse_from_str(&date_str, "%Y%m%d")
+        .map_err(|_| format!("Data non valida codificata nella chiave: {date_str}"))
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LicenseInfo {
@@ -9,24 +56,33 @@ pub struct LicenseInfo {
     pub tipo: String,
     pub scadenza: Option<String>,
     pub giorni_rimanenti: Option<i64>,
+    pub scaduto: bool,
 }
 
 impl LicenseInfo {
     fn none() -> Self {
-        LicenseInfo { valid: false, tipo: "none".into(), scadenza: None, giorni_rimanenti: None }
+        LicenseInfo {
+            valid: false,
+            tipo: "none".into(),
+            scadenza: None,
+            giorni_rimanenti: None,
+            scaduto: false,
+        }
     }
-    fn permanent() -> Self {
-        LicenseInfo { valid: true, tipo: "permanent".into(), scadenza: None, giorni_rimanenti: None }
-    }
-    fn demo(scadenza: String, giorni: i64) -> Self {
-        LicenseInfo { valid: giorni >= 0, tipo: "demo".into(), scadenza: Some(scadenza), giorni_rimanenti: Some(giorni) }
-    }
-}
 
-fn is_valid_format(key: &str) -> bool {
-    let parts: Vec<&str> = key.split('-').collect();
-    parts.len() == 4
-        && parts.iter().all(|p| p.len() == 4 && p.chars().all(|c| c.is_ascii_alphanumeric()))
+    fn from_expiry(tipo: &str, expiry: NaiveDate) -> Self {
+        let today = Local::now().date_naive();
+        let giorni = (expiry - today).num_days();
+        let scadenza = expiry.format("%d/%m/%Y").to_string();
+        let scaduto = giorni < 0;
+        LicenseInfo {
+            valid: !scaduto,
+            tipo: tipo.into(),
+            scadenza: Some(scadenza),
+            giorni_rimanenti: Some(giorni),
+            scaduto,
+        }
+    }
 }
 
 pub fn compute_machine_hash() -> Result<String, String> {
@@ -81,27 +137,27 @@ fn read_raw_machine_id() -> Result<String, String> {
     Err("Piattaforma non supportata".to_string())
 }
 
-fn validate_permanent_key(chiave: &str, machine_hash: &str) -> bool {
-    let key_no_dashes = chiave.replace('-', "").to_lowercase();
-    key_no_dashes.len() >= 8
-        && machine_hash.len() >= 8
-        && key_no_dashes[..8] == machine_hash[..8]
-}
-
-fn parse_demo_entry(rest: &str) -> LicenseInfo {
-    // rest = "MMYY:YYYY-MM-DD"
-    let parts: Vec<&str> = rest.splitn(2, ':').collect();
-    if parts.len() != 2 {
-        return LicenseInfo::none();
+fn parse_key(chiave: &str, machine_hash: &str) -> Result<LicenseInfo, String> {
+    let parts: Vec<&str> = chiave.split('-').collect();
+    if parts.len() != 4
+        || parts.iter().skip(1).any(|p| p.len() != 4 || !p.chars().all(|c| c.is_ascii_alphanumeric()))
+    {
+        return Err("Formato chiave non valido".into());
     }
-    let Ok(activation) = NaiveDate::parse_from_str(parts[1], "%Y-%m-%d") else {
-        return LicenseInfo::none();
+
+    let tipo = match parts[0] {
+        "DEMO" => "demo",
+        "PERM" => "permanent",
+        _ => return Err("Prefisso chiave non valido. Usa DEMO- o PERM-".into()),
     };
-    let expiry = activation + Duration::days(15);
-    let today = Local::now().date_naive();
-    let giorni = (expiry - today).num_days();
-    let scadenza = expiry.format("%d/%m/%Y").to_string();
-    LicenseInfo::demo(scadenza, giorni)
+
+    let hash_part = parts[1].to_lowercase();
+    if machine_hash.len() < 4 || hash_part != machine_hash[..4] {
+        return Err("Chiave non valida per questo dispositivo".into());
+    }
+
+    let expiry = decode_date(parts[2], parts[3])?;
+    Ok(LicenseInfo::from_expiry(tipo, expiry))
 }
 
 pub fn check_license_at_path(app_dir: &std::path::Path) -> LicenseInfo {
@@ -109,27 +165,11 @@ pub fn check_license_at_path(app_dir: &std::path::Path) -> LicenseInfo {
     let Ok(contents) = std::fs::read_to_string(&license_path) else {
         return LicenseInfo::none();
     };
-    let contents = contents.trim();
+    let chiave = contents.trim().to_uppercase();
     let Ok(machine_hash) = compute_machine_hash() else {
         return LicenseInfo::none();
     };
-
-    if let Some(rest) = contents.strip_prefix("permanent:") {
-        if validate_permanent_key(rest, &machine_hash) {
-            LicenseInfo::permanent()
-        } else {
-            LicenseInfo::none()
-        }
-    } else if let Some(rest) = contents.strip_prefix("demo:") {
-        parse_demo_entry(rest)
-    } else {
-        // Legacy: raw permanent key
-        if is_valid_format(contents) && validate_permanent_key(contents, &machine_hash) {
-            LicenseInfo::permanent()
-        } else {
-            LicenseInfo::none()
-        }
-    }
+    parse_key(&chiave, &machine_hash).unwrap_or_else(|_| LicenseInfo::none())
 }
 
 #[tauri::command]
@@ -149,44 +189,18 @@ pub fn activate_license(
     chiave: String,
 ) -> Result<LicenseInfo, String> {
     let machine_hash = compute_machine_hash()?;
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-
-    if chiave.starts_with("DEMO-") {
-        // Formato: DEMO-XXXX-XXXX-MMYY
-        let parts: Vec<&str> = chiave.split('-').collect();
-        if parts.len() != 4
-            || parts[1].len() != 4
-            || parts[2].len() != 4
-            || parts[3].len() != 4
-        {
-            return Err("Formato chiave demo non valido. Usa DEMO-XXXX-XXXX-MMYY".into());
-        }
-        let hash_part = format!("{}{}", parts[1], parts[2]).to_lowercase();
-        if machine_hash.len() < 8 || hash_part != machine_hash[..8] {
-            return Err("Chiave demo non valida per questo dispositivo".into());
-        }
-        let mmyy = parts[3];
-        let today = Local::now().date_naive();
-        let today_str = today.format("%Y-%m-%d").to_string();
-        std::fs::write(app_dir.join("license.dat"), format!("demo:{mmyy}:{today_str}"))
-            .map_err(|e| e.to_string())?;
-        let expiry = today + Duration::days(15);
-        let info = LicenseInfo::demo(expiry.format("%d/%m/%Y").to_string(), 15);
-        *state.info.lock().unwrap() = info.clone();
-        Ok(info)
-    } else {
-        if !is_valid_format(&chiave) {
-            return Err("Formato chiave non valido. Usa XXXX-XXXX-XXXX-XXXX".into());
-        }
-        if !validate_permanent_key(&chiave, &machine_hash) {
-            return Err("Chiave non valida per questo dispositivo".into());
-        }
-        std::fs::write(app_dir.join("license.dat"), format!("permanent:{chiave}"))
-            .map_err(|e| e.to_string())?;
-        let info = LicenseInfo::permanent();
-        *state.info.lock().unwrap() = info.clone();
-        Ok(info)
+    let chiave_up = chiave.trim().to_uppercase();
+    let info = parse_key(&chiave_up, &machine_hash)?;
+    if info.scaduto {
+        return Err(format!(
+            "La chiave è già scaduta il {}. Contatta Alessandro Formica: +39 320 456 2042",
+            info.scadenza.as_deref().unwrap_or("data sconosciuta")
+        ));
     }
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::write(app_dir.join("license.dat"), &chiave_up).map_err(|e| e.to_string())?;
+    *state.info.lock().unwrap() = info.clone();
+    Ok(info)
 }
 
 #[tauri::command]

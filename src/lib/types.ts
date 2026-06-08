@@ -184,6 +184,7 @@ export interface LicenseInfo {
   tipo: 'none' | 'permanent' | 'demo'
   scadenza: string | null
   giorni_rimanenti: number | null
+  scaduto: boolean
 }
 
 export type View =

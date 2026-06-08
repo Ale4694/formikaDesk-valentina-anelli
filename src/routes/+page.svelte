@@ -94,9 +94,13 @@
   <LicenseGate licenseInfoData={$licenseInfo} on:activated={onLicenseActivated} />
 {:else}
   <div class="flex flex-col h-screen overflow-hidden bg-gray-950">
-    {#if $licenseInfo?.tipo === 'demo'}
+    {#if $licenseInfo?.tipo === 'demo' && $licenseInfo.valid}
       <div class="shrink-0 bg-yellow-900 border-b border-yellow-700 text-yellow-200 px-4 py-1.5 text-xs text-center font-medium">
-        Licenza demo — scade il {$licenseInfo.scadenza} ({$licenseInfo.giorni_rimanenti} giorni rimanenti su 15)
+        Licenza demo — scade il {$licenseInfo.scadenza} ({$licenseInfo.giorni_rimanenti} {$licenseInfo.giorni_rimanenti === 1 ? 'giorno rimanente' : 'giorni rimanenti'})
+      </div>
+    {:else if $licenseInfo?.tipo === 'permanent' && $licenseInfo.valid && ($licenseInfo.giorni_rimanenti ?? 999) < 30}
+      <div class="shrink-0 bg-orange-900 border-b border-orange-700 text-orange-200 px-4 py-1.5 text-xs text-center font-medium">
+        Licenza in scadenza il {$licenseInfo.scadenza} — rinnova per continuare. Contatta Alessandro Formica: +39 320 456 2042
       </div>
     {/if}
     <div id="app-wrapper" class="flex flex-1 min-h-0">

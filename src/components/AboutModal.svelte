@@ -121,11 +121,14 @@
               </span>
             </div>
           {/if}
-          {#if $licenseInfo?.tipo === 'demo' && $licenseInfo.scadenza}
+          {#if $licenseInfo?.scadenza}
             <div class="flex items-center justify-between">
               <span class="text-xs text-gray-400">Scadenza</span>
-              <span class="text-xs text-yellow-400 font-medium">
-                {$licenseInfo.scadenza} ({$licenseInfo.giorni_rimanenti} giorni rimanenti)
+              <span class="text-xs font-medium {$licenseInfo.scaduto ? 'text-red-400' : ($licenseInfo.giorni_rimanenti ?? 999) < 30 ? 'text-orange-400' : 'text-yellow-400'}">
+                {$licenseInfo.scadenza}
+                {#if !$licenseInfo.scaduto && $licenseInfo.giorni_rimanenti !== null}
+                  ({$licenseInfo.giorni_rimanenti} {$licenseInfo.giorni_rimanenti === 1 ? 'giorno rimanente' : 'giorni rimanenti'})
+                {/if}
               </span>
             </div>
           {/if}
