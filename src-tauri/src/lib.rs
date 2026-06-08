@@ -24,6 +24,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let app_dir = app
                 .path()
@@ -106,6 +107,8 @@ pub fn run() {
             commands::impostazioni::get_impostazioni,
             commands::impostazioni::save_impostazioni,
             commands::fattura_pa::genera_fattura_pa,
+            commands::update::check_update,
+            commands::update::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Tauri");

@@ -18,6 +18,12 @@
   import Cassa from '../components/views/Cassa.svelte'
   import StoricoCassa from '../components/views/StoricoCassa.svelte'
   import Impostazioni from '../components/views/Impostazioni.svelte'
+  import UpdateModal from '../components/UpdateModal.svelte'
+  import { invoke } from '@tauri-apps/api/core'
+  import { getVersion } from '@tauri-apps/api/app'
+
+  let updateInfo: { version: string; notes: string; date: string } | null = null
+  let currentVersion = ''
 
   async function loadAll() {
     isLoading.set(true)
@@ -61,6 +67,13 @@
     licenseValid.set(info.valid)
     if (info.valid) {
       await loadAll()
+      try {
+        currentVersion = await getVersion()
+        const update = await invoke<{ version: string; notes: string; date: string } | null>('check_update')
+        if (update) updateInfo = update
+      } catch {
+        // aggiornamenti non critici: ignora errori di rete
+      }
     }
   })
 </script>
@@ -131,4 +144,7 @@
 
   <PrintOverlay />
   <SearchModal />
+  {#if updateInfo}
+    <UpdateModal {updateInfo} {currentVersion} on:dismiss={() => (updateInfo = null)} />
+  {/if}
 {/if}

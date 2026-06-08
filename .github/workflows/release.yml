@@ -93,3 +93,53 @@ jobs:
           releaseDraft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || false }}
           prerelease: false
           args: ${{ matrix.tauri-args }}
+
+  publish-latest-json:
+    needs: release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tauri.conf.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Generate latest.json
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          BASE="https://github.com/${REPO}/releases/download/${TAG}"
+          cat > latest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "notes": "Vedi https://github.com/${REPO}/releases/tag/${TAG} per i dettagli.",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "linux-x86_64": {
+                "url": "${BASE}/autoparts-manager_${VERSION}_amd64.AppImage",
+                "signature": ""
+              },
+              "windows-x86_64": {
+                "url": "${BASE}/autoparts-manager_${VERSION}_x64-setup.exe",
+                "signature": ""
+              },
+              "darwin-universal": {
+                "url": "${BASE}/autoparts-manager_${VERSION}_universal.dmg",
+                "signature": ""
+              }
+            }
+          }
+          EOF
+
+      - name: Upload latest.json to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.ref_name }} latest.json --clobber

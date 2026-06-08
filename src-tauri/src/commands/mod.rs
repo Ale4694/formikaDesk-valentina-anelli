@@ -11,4 +11,5 @@ pub mod ordini;
 pub mod report;
 pub mod ricambi;
 pub mod ricerca;
+pub mod update;
 pub mod veicoli;
