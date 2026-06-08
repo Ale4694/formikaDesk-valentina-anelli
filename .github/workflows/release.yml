@@ -24,7 +24,7 @@ jobs:
             tauri-args: ''
           - platform: windows-latest
             rust-targets: ''
-            tauri-args: ''
+            tauri-args: '--bundles nsis'
           - platform: macos-latest
             rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
             tauri-args: '--target universal-apple-darwin'
@@ -50,6 +50,15 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
+
+      - name: Cache Tauri bundlers (NSIS) — Windows
+        if: matrix.platform == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.LOCALAPPDATA }}\tauri\NSIS
+            ${{ env.LOCALAPPDATA }}\tauri\WiX
+          key: tauri-bundlers-${{ runner.os }}-v1
 
       - name: Install Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -80,12 +89,12 @@ jobs:
 
             | Piattaforma | File |
             |-------------|------|
-            | Windows     | `.msi` (installer) o `.exe` (NSIS) |
+            | Windows     | `.exe` (NSIS installer) |
             | Linux       | `.deb` (Debian/Ubuntu) o `.AppImage` |
             | macOS       | `.dmg` (Intel + Apple Silicon) |
 
             ### Note installazione
-            - **Windows**: eseguire il file `.msi` o `.exe`
+            - **Windows**: eseguire il file `.exe`
             - **Linux**: `sudo dpkg -i autoparts-manager_*.deb` oppure rendere eseguibile l'AppImage
             - **macOS**: aprire il `.dmg` e trascinare l'app in Applicazioni (se compare avviso di sicurezza: Impostazioni → Privacy e sicurezza → Apri comunque)
 
