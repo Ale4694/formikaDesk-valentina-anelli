@@ -1,0 +1,20 @@
+{
+  "nome_attivita": "FormikaDesk Tester",
+  "tipo": "officina",
+  "update_endpoint": "https://github.com/Ale4694/formikaDesk-cristian-ascia/releases/latest/download/latest.json",
+  "moduli": ["magazzino", "clienti", "veicoli", "fornitori", "documenti", "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"],
+  "vocabolario": {
+    "ricambio": "Ricambio",
+    "ricambi": "Ricambi",
+    "codice_oem": "Codice OEM",
+    "modello_auto": "Modello auto",
+    "marca": "Marca",
+    "categoria": "Categoria",
+    "posizione": "Posizione",
+    "fornitore": "Fornitore",
+    "fornitori": "Fornitori",
+    "veicoli": "Veicoli",
+    "cliente": "Cliente",
+    "clienti": "Clienti"
+  }
+}
