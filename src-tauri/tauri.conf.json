@@ -26,7 +26,6 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://github.com/Ale4694/formikaDesk/releases/latest/download/latest.json"],
       "dialog": false,
       "pubkey": ""
     }

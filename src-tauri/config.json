@@ -1,6 +1,7 @@
 {
   "nome_attivita": "FormikaDesk",
   "tipo": "officina",
+  "update_endpoint": "https://github.com/Ale4694/formikaDesk/releases/latest/download/latest.json",
   "moduli": ["magazzino", "clienti", "veicoli", "fornitori", "documenti", "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"],
   "vocabolario": {
     "ricambio": "Ricambio",

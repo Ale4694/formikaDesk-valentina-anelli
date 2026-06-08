@@ -2,6 +2,8 @@ use serde::Serialize;
 use tauri::Emitter;
 use tauri_plugin_updater::UpdaterExt;
 
+use super::config::read_config;
+
 #[derive(Serialize)]
 pub struct UpdateInfo {
     pub version: String,
@@ -11,7 +13,13 @@ pub struct UpdateInfo {
 
 #[tauri::command]
 pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+    let config = read_config(&app)?;
+    let url = config.update_endpoint.parse::<url::Url>().map_err(|e| e.to_string())?;
+    let updater = app.updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
     let update = updater.check().await.map_err(|e| e.to_string())?;
     Ok(update.map(|u| UpdateInfo {
         version: u.version.clone(),
@@ -22,7 +30,13 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
 
 #[tauri::command]
 pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
-    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+    let config = read_config(&app)?;
+    let url = config.update_endpoint.parse::<url::Url>().map_err(|e| e.to_string())?;
+    let updater = app.updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
     if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
         let app_clone = app.clone();
         update

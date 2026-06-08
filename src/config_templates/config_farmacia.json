@@ -1,6 +1,7 @@
 {
   "nome_attivita": "Farmacia Gestionale",
   "tipo": "farmacia",
+  "update_endpoint": "https://github.com/Ale4694/formikaDesk/releases/latest/download/latest.json",
   "moduli": ["magazzino", "clienti", "fornitori", "documenti", "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"],
   "vocabolario": {
     "ricambio": "Farmaco",
