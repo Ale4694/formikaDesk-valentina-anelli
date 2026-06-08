@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { currentView, globalError, globalSuccess, isLoading, clienti, fornitori, ricambi, documenti, dashboardStats, setError, searchOpen, licenseValid, licenseInfo } from '$lib/stores'
+  import { currentView, globalError, globalSuccess, isLoading, clienti, fornitori, ricambi, documenti, dashboardStats, setError, searchOpen, licenseValid, licenseInfo, appConfig } from '$lib/stores'
   import { api } from '$lib/api'
   import Sidebar from '../components/Sidebar.svelte'
   import Dashboard from '../components/views/Dashboard.svelte'
@@ -66,6 +66,12 @@
     licenseInfo.set(info)
     licenseValid.set(info.valid)
     if (info.valid) {
+      try {
+        const cfg = await api.config.get()
+        appConfig.set(cfg)
+      } catch {
+        // config non critica, usa defaults
+      }
       await loadAll()
       try {
         currentVersion = await getVersion()

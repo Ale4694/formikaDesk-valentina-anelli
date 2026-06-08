@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
-  import { ricambi, fornitori, formatCurrency, setError, setSuccess } from '../../lib/stores'
+  import { ricambi, fornitori, formatCurrency, setError, setSuccess, appConfig } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { NuovoRicambio } from '../../lib/types'
   import ConfirmModal from '../ConfirmModal.svelte'
@@ -70,6 +70,24 @@
         (r.codice_oem ?? '').toLowerCase().includes(search.toLowerCase())
       )
     : $ricambi
+
+  $: vocRicambio   = $appConfig?.vocabolario?.ricambio    ?? 'Ricambio'
+  $: vocRicambi    = $appConfig?.vocabolario?.ricambi     ?? 'Ricambi'
+  $: vocCodiceOem  = $appConfig?.vocabolario?.codice_oem  ?? 'Codice OEM'
+  $: vocModelloAuto= $appConfig?.vocabolario?.modello_auto ?? 'Modello auto'
+  $: vocMarca      = $appConfig?.vocabolario?.marca        ?? 'Marca'
+  $: vocCategoria  = $appConfig?.vocabolario?.categoria    ?? 'Categoria'
+  $: vocPosizione  = $appConfig?.vocabolario?.posizione    ?? 'Posizione'
+
+  $: columns = [
+    { col: 'codice_interno',  label: 'Codice',        align: 'left'  },
+    { col: 'descrizione',     label: 'Descrizione',   align: 'left'  },
+    { col: 'codice_oem',      label: vocCodiceOem,    align: 'left'  },
+    { col: 'giacenza',        label: 'Giacenza',      align: 'right' },
+    { col: 'prezzo_acquisto', label: 'P. Acquisto',   align: 'right' },
+    { col: 'prezzo_vendita',  label: 'P. Vendita',    align: 'right' },
+    { col: 'posizione',       label: vocPosizione,    align: 'left'  },
+  ]
 
   $: sorted = [...filtered].sort((a, b) => {
     const av = sortVal(a, sortCol)
@@ -174,19 +192,19 @@
         </svg>
         Esporta CSV
       </button>
-      <button class="btn-primary" on:click={() => { cancelForm(); showForm = true }}>+ Nuovo ricambio</button>
+      <button class="btn-primary" on:click={() => { cancelForm(); showForm = true }}>+ Nuovo {vocRicambio.toLowerCase()}</button>
     </div>
   </div>
 
   {#if showForm}
     <div class="card p-5 space-y-4">
-      <h2 class="text-sm font-semibold text-white">{editId ? 'Modifica ricambio' : 'Nuovo ricambio'}</h2>
+      <h2 class="text-sm font-semibold text-white">{editId ? 'Modifica' : 'Nuovo'} {vocRicambio.toLowerCase()}</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div><label class="label">Codice interno *</label><input class="input" bind:value={form.codice_interno} placeholder="RI-0001"/></div>
-        <div><label class="label">Codice OEM</label><input class="input" bind:value={form.codice_oem} placeholder="1234567890"/></div>
+        <div><label class="label">{vocCodiceOem}</label><input class="input" bind:value={form.codice_oem} placeholder="1234567890"/></div>
         <div class="col-span-2"><label class="label">Descrizione *</label><input class="input" bind:value={form.descrizione} placeholder="Filtro olio..."/></div>
-        <div><label class="label">Marca</label><input class="input" bind:value={form.marca}/></div>
-        <div><label class="label">Modello auto</label><input class="input" bind:value={form.modello_auto}/></div>
+        <div><label class="label">{vocMarca}</label><input class="input" bind:value={form.marca}/></div>
+        <div><label class="label">{vocModelloAuto}</label><input class="input" bind:value={form.modello_auto}/></div>
         <div><label class="label">Anno da</label><input class="input" type="number" bind:value={form.anno_da}/></div>
         <div><label class="label">Anno a</label><input class="input" type="number" bind:value={form.anno_a}/></div>
         <div><label class="label">Giacenza</label><input class="input" type="number" bind:value={form.giacenza}/></div>
@@ -194,8 +212,8 @@
         <div><label class="label">Prezzo acquisto (€)</label><input class="input" type="number" step="0.01" bind:value={form.prezzo_acquisto}/></div>
         <div><label class="label">Prezzo vendita (€)</label><input class="input" type="number" step="0.01" bind:value={form.prezzo_vendita}/></div>
         <div><label class="label">IVA %</label><input class="input" type="number" bind:value={form.iva_percentuale}/></div>
-        <div><label class="label">Posizione</label><input class="input" bind:value={form.posizione} placeholder="Scaffale A1"/></div>
-        <div><label class="label">Categoria</label><input class="input" bind:value={form.categoria}/></div>
+        <div><label class="label">{vocPosizione}</label><input class="input" bind:value={form.posizione} placeholder="Scaffale A1"/></div>
+        <div><label class="label">{vocCategoria}</label><input class="input" bind:value={form.categoria}/></div>
         <div>
           <label class="label">Fornitore</label>
           <select class="input" bind:value={form.fornitore_id}>
@@ -217,15 +235,7 @@
     <table class="w-full text-sm">
       <thead class="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wide">
         <tr>
-          {#each [
-            { col: 'codice_interno', label: 'Codice',     align: 'left'  },
-            { col: 'descrizione',    label: 'Descrizione', align: 'left'  },
-            { col: 'codice_oem',     label: 'OEM',         align: 'left'  },
-            { col: 'giacenza',       label: 'Giacenza',    align: 'right' },
-            { col: 'prezzo_acquisto',label: 'P. Acquisto', align: 'right' },
-            { col: 'prezzo_vendita', label: 'P. Vendita',  align: 'right' },
-            { col: 'posizione',      label: 'Posizione',   align: 'left'  },
-          ] as h}
+          {#each columns as h}
             <th
               class="px-4 py-3 text-{h.align} cursor-pointer select-none hover:text-gray-200 whitespace-nowrap"
               on:click={() => toggleSort(h.col)}
@@ -328,9 +338,9 @@
                 </svg>
                 <p class="text-sm">
                   {#if search.trim()}
-                    Nessun ricambio corrisponde a "<span class="text-gray-400">{search}</span>"
+                    Nessun {vocRicambio.toLowerCase()} corrisponde a "<span class="text-gray-400">{search}</span>"
                   {:else}
-                    Magazzino vuoto — aggiungi il primo ricambio
+                    Magazzino vuoto — aggiungi il primo {vocRicambio.toLowerCase()}
                   {/if}
                 </p>
               </div>

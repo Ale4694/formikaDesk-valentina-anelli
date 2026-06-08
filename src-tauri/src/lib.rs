@@ -107,6 +107,7 @@ pub fn run() {
             commands::impostazioni::get_impostazioni,
             commands::impostazioni::save_impostazioni,
             commands::fattura_pa::genera_fattura_pa,
+            commands::config::get_config,
             commands::update::check_update,
             commands::update::install_update,
         ])

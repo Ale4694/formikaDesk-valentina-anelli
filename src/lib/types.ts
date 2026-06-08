@@ -376,3 +376,10 @@ export interface ScontrinoCompleto {
   scontrino: Scontrino
   righe: RigaScontrino[]
 }
+
+export interface AppConfig {
+  nome_attivita: string
+  tipo: string
+  moduli: string[]
+  vocabolario: Record<string, string>
+}

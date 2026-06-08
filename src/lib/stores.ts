@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store'
-import type { Cliente, Fornitore, Ricambio, Documento, DashboardStats, View, DocumentoCompleto, LicenseInfo } from './types'
+import type { Cliente, Fornitore, Ricambio, Documento, DashboardStats, View, DocumentoCompleto, LicenseInfo, AppConfig } from './types'
 
 function getStoredView(): View {
   try {
@@ -39,6 +39,7 @@ export const searchOpen = writable(false)
 export const printData = writable<DocumentoCompleto | null>(null)
 export const licenseValid = writable<boolean | null>(null)
 export const licenseInfo = writable<LicenseInfo | null>(null)
+export const appConfig = writable<AppConfig | null>(null)
 
 export const globalSuccess = writable<string | null>(null)
 

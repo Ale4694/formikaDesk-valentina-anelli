@@ -1,0 +1,19 @@
+{
+  "nome_attivita": "Farmacia Gestionale",
+  "tipo": "farmacia",
+  "moduli": ["magazzino", "clienti", "fornitori", "documenti", "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"],
+  "vocabolario": {
+    "ricambio": "Farmaco",
+    "ricambi": "Farmaci",
+    "codice_oem": "Codice AIC",
+    "modello_auto": "Principio attivo",
+    "marca": "Casa farmaceutica",
+    "categoria": "Categoria terapeutica",
+    "posizione": "Posizione",
+    "fornitore": "Fornitore",
+    "fornitori": "Fornitori",
+    "veicoli": "Veicoli",
+    "cliente": "Cliente",
+    "clienti": "Clienti"
+  }
+}

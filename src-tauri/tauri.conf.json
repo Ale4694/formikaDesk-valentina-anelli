@@ -41,7 +41,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [],
+    "resources": ["config.json"],
     "category": "Business",
     "shortDescription": "Gestionale ricambi auto",
     "longDescription": "Gestionale desktop per officine e rivenditori di ricambi auto. Magazzino, fatturazione, clienti e fornitori."

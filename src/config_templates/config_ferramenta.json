@@ -1,0 +1,19 @@
+{
+  "nome_attivita": "Ferramenta Gestionale",
+  "tipo": "ferramenta",
+  "moduli": ["magazzino", "clienti", "fornitori", "documenti", "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"],
+  "vocabolario": {
+    "ricambio": "Articolo",
+    "ricambi": "Articoli",
+    "codice_oem": "Codice produttore",
+    "modello_auto": "",
+    "marca": "Marca",
+    "categoria": "Categoria",
+    "posizione": "Posizione",
+    "fornitore": "Fornitore",
+    "fornitori": "Fornitori",
+    "veicoli": "Veicoli",
+    "cliente": "Cliente",
+    "clienti": "Clienti"
+  }
+}

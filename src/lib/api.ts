@@ -9,7 +9,7 @@ import type {
   OrdineCompleto, NuovoOrdineFornitore,
   ReportMensile, ScadenzaDocumento,
   ScontrinoCompleto, NuovoScontrino,
-  Impostazioni, LicenseInfo,
+  Impostazioni, LicenseInfo, AppConfig,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -104,5 +104,8 @@ export const api = {
   },
   fatturaPa: {
     genera: (documentoId: number) => call<string>('genera_fattura_pa', { documentoId }),
+  },
+  config: {
+    get: () => call<AppConfig>('get_config'),
   },
 }
