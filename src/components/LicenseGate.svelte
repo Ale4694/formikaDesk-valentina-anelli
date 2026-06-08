@@ -35,10 +35,6 @@
   }
 
   async function attiva() {
-    if (chiave.length < 19) {
-      errore = 'Inserisci una chiave completa (XXXX-XXXX-XXXX-XXXX)'
-      return
-    }
     errore = ''
     loading = true
     try {
@@ -115,7 +111,7 @@
               on:input={handleInput}
               on:keydown={handleKeydown}
               placeholder="PERM-XXXX-XXXX-XXXX"
-              maxlength="19"
+              maxlength="20"
               spellcheck="false"
               autocomplete="off"
               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white
@@ -180,7 +176,7 @@
               on:input={handleInput}
               on:keydown={handleKeydown}
               placeholder="DEMO-XXXX-XXXX-XXXX  o  PERM-XXXX-XXXX-XXXX"
-              maxlength="19"
+              maxlength="20"
               spellcheck="false"
               autocomplete="off"
               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white
