@@ -274,7 +274,7 @@
     role="dialog"
     aria-modal="true"
   >
-    <div class="card w-full max-w-md p-6 space-y-4 shadow-2xl">
+    <div class="card w-full max-w-md max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold text-white">📦 Carico rapido barcode</h2>
         <button class="text-gray-500 hover:text-gray-300 text-lg leading-none" on:click={closeCaricoRapido}>✕</button>
