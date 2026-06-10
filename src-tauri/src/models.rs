@@ -188,6 +188,15 @@ pub struct DashboardStats {
     pub incasso_oggi: f64,
 }
 
+// Carico rapido barcode
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RicambioResult {
+    pub trovato: bool,
+    pub ricambio: Option<Ricambio>,
+    pub nuova_giacenza: Option<i64>,
+}
+
 // Cassa / scontrini
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]

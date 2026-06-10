@@ -74,6 +74,7 @@ pub fn run() {
             commands::ricambi::update_ricambio,
             commands::ricambi::delete_ricambio,
             commands::ricambi::aggiorna_giacenza,
+            commands::ricambi::carico_rapido_ricambio,
             commands::fornitori::get_all_fornitori,
             commands::fornitori::create_fornitore,
             commands::documenti::get_all_documenti,

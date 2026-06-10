@@ -378,6 +378,12 @@ export interface ScontrinoCompleto {
   righe: RigaScontrino[]
 }
 
+export interface RicambioResult {
+  trovato: boolean
+  ricambio: Ricambio | null
+  nuova_giacenza: number | null
+}
+
 export interface AppConfig {
   nome_attivita: string
   tipo: string

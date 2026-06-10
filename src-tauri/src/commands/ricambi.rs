@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::{NuovoRicambio, Ricambio};
+use crate::models::{NuovoRicambio, Ricambio, RicambioResult};
 use tauri::State;
 
 #[tauri::command]
@@ -137,6 +137,57 @@ pub async fn delete_ricambio(id: i64, state: State<'_, AppState>) -> Result<(), 
         return Err(AppError::NotFound(format!("ricambio id={id} non trovato")));
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn carico_rapido_ricambio(
+    codice: String,
+    quantita: i32,
+    state: State<'_, AppState>,
+) -> Result<RicambioResult, AppError> {
+    let codice_lower = codice.trim().to_lowercase();
+    if codice_lower.is_empty() {
+        return Ok(RicambioResult { trovato: false, ricambio: None, nuova_giacenza: None });
+    }
+
+    let ricambio = sqlx::query_as::<_, Ricambio>(
+        "SELECT * FROM ricambi WHERE LOWER(codice_interno) = ? OR LOWER(codice_oem) = ? LIMIT 1"
+    )
+    .bind(&codice_lower)
+    .bind(&codice_lower)
+    .fetch_optional(&state.db)
+    .await?;
+
+    match ricambio {
+        None => Ok(RicambioResult { trovato: false, ricambio: None, nuova_giacenza: None }),
+        Some(r) => {
+            let delta = quantita as i64;
+            sqlx::query(
+                "UPDATE ricambi SET giacenza = giacenza + ?, updated_at = datetime('now') WHERE id = ?"
+            )
+            .bind(delta)
+            .bind(r.id)
+            .execute(&state.db)
+            .await?;
+
+            sqlx::query(
+                "INSERT INTO movimenti_magazzino (ricambio_id, tipo_movimento, quantita, documento_id, note)
+                 VALUES (?, 'carico', ?, NULL, 'carico rapido barcode')"
+            )
+            .bind(r.id)
+            .bind(quantita as f64)
+            .execute(&state.db)
+            .await?;
+
+            let updated = sqlx::query_as::<_, Ricambio>("SELECT * FROM ricambi WHERE id = ?")
+                .bind(r.id)
+                .fetch_one(&state.db)
+                .await?;
+
+            let nuova_giacenza = updated.giacenza;
+            Ok(RicambioResult { trovato: true, ricambio: Some(updated), nuova_giacenza: Some(nuova_giacenza) })
+        }
+    }
 }
 
 #[tauri::command]

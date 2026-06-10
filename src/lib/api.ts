@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type {
   Cliente, NuovoCliente,
   Fornitore, NuovoFornitore,
-  Ricambio, NuovoRicambio,
+  Ricambio, NuovoRicambio, RicambioResult,
   Documento, DocumentoCompleto, NuovoDocumento,
   DashboardStats, RisultatoRicerca,
   Veicolo, NuovoVeicolo,
@@ -107,5 +107,9 @@ export const api = {
   },
   config: {
     get: () => call<AppConfig>('get_config'),
+  },
+  magazzino: {
+    caricoRapido: (codice: string, quantita: number) =>
+      call<RicambioResult>('carico_rapido_ricambio', { codice, quantita }),
   },
 }

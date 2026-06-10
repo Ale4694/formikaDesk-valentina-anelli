@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
+  import { createEventDispatcher, tick } from 'svelte'
   import { ricambi, fornitori, formatCurrency, setError, setSuccess, appConfig } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { NuovoRicambio } from '../../lib/types'
+  import type { NuovoRicambio, Ricambio } from '../../lib/types'
   import ConfirmModal from '../ConfirmModal.svelte'
 
   type SortDir = 'asc' | 'desc'
@@ -54,6 +54,17 @@
   let caricoNote = ''
   let caricoSaving = false
 
+  // Carico rapido barcode
+  let showCaricoRapido = false
+  let barcodeInput = ''
+  let barcodeFound: Ricambio | null = null
+  let barcodeNotFound = false
+  let caricoRapidoQty = 1
+  let confirmMsg: string | null = null
+  let barcodeLoading = false
+  let barcodeEl: HTMLInputElement
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
   const emptyForm = (): NuovoRicambio => ({
     codice_interno: '', codice_oem: '', descrizione: '', marca: '',
     modello_auto: '', anno_da: null, anno_a: null, categoria: '',
@@ -96,6 +107,80 @@
     const cmp = String(av).localeCompare(String(bv), 'it')
     return sortDir === 'asc' ? cmp : -cmp
   })
+
+  async function openCaricoRapido() {
+    showCaricoRapido = true
+    barcodeInput = ''
+    barcodeFound = null
+    barcodeNotFound = false
+    confirmMsg = null
+    caricoRapidoQty = 1
+    await tick()
+    barcodeEl?.focus()
+  }
+
+  function closeCaricoRapido() {
+    if (debounceTimer) clearTimeout(debounceTimer)
+    showCaricoRapido = false
+    barcodeInput = ''
+    barcodeFound = null
+    barcodeNotFound = false
+    confirmMsg = null
+  }
+
+  function cercaBarcodeLocale() {
+    const codice = barcodeInput.trim().toLowerCase()
+    if (!codice) { barcodeFound = null; barcodeNotFound = false; return }
+    barcodeFound = $ricambi.find(r =>
+      r.codice_interno.toLowerCase() === codice ||
+      (r.codice_oem ?? '').toLowerCase() === codice
+    ) ?? null
+    barcodeNotFound = barcodeFound === null
+    caricoRapidoQty = 1
+    confirmMsg = null
+  }
+
+  function onBarcodeKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      cercaBarcodeLocale()
+    }
+  }
+
+  function onBarcodeInput() {
+    if (debounceTimer) clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(cercaBarcodeLocale, 300)
+  }
+
+  async function eseguiCaricoRapido() {
+    if (!barcodeFound) return
+    barcodeLoading = true
+    try {
+      const result = await api.magazzino.caricoRapido(barcodeInput.trim(), caricoRapidoQty)
+      if (result.trovato && result.ricambio) {
+        ricambi.update(list => list.map(r => r.id === result.ricambio!.id ? result.ricambio! : r))
+        confirmMsg = `✅ Aggiunto: ${result.ricambio.descrizione} — nuova giacenza: ${result.nuova_giacenza}`
+        dispatch('refresh')
+      }
+      barcodeFound = null
+      barcodeNotFound = false
+      barcodeInput = ''
+      await tick()
+      barcodeEl?.focus()
+    } catch (e: any) {
+      setError(e?.message ?? 'Errore carico rapido')
+    } finally {
+      barcodeLoading = false
+    }
+  }
+
+  function apriCreazioneDaBarcode() {
+    const codice = barcodeInput.trim()
+    closeCaricoRapido()
+    cancelForm()
+    form.codice_interno = codice
+    showForm = true
+  }
 
   function startEdit(r: (typeof $ricambi)[0]) {
     editId = r.id
@@ -182,6 +267,83 @@
   onCancel={() => { confirmOpen = false; pendingDeleteId = null }}
 />
 
+{#if showCaricoRapido}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    on:click|self={closeCaricoRapido}
+    role="dialog"
+    aria-modal="true"
+  >
+    <div class="card w-full max-w-md p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-white">📦 Carico rapido barcode</h2>
+        <button class="text-gray-500 hover:text-gray-300 text-lg leading-none" on:click={closeCaricoRapido}>✕</button>
+      </div>
+
+      <div>
+        <label class="label">Scansiona o digita codice</label>
+        <input
+          bind:this={barcodeEl}
+          bind:value={barcodeInput}
+          class="input font-mono"
+          placeholder="Codice interno o OEM..."
+          on:input={onBarcodeInput}
+          on:keydown={onBarcodeKeydown}
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+
+      {#if confirmMsg}
+        <div class="rounded-lg bg-green-950/40 border border-green-800/50 px-4 py-3 text-green-300 text-sm">
+          {confirmMsg}
+        </div>
+      {/if}
+
+      {#if barcodeFound}
+        <div class="rounded-lg bg-gray-800/60 border border-gray-700 px-4 py-3 space-y-3">
+          <div>
+            <p class="text-white font-medium text-sm">{barcodeFound.descrizione}</p>
+            {#if barcodeFound.marca}
+              <p class="text-gray-400 text-xs">{barcodeFound.marca}</p>
+            {/if}
+            <p class="text-xs text-gray-500 font-mono mt-1">{barcodeFound.codice_interno}{barcodeFound.codice_oem ? ` · ${barcodeFound.codice_oem}` : ''}</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-400">Giacenza attuale:</span>
+            <span class="text-sm font-semibold {barcodeFound.giacenza < barcodeFound.giacenza_minima ? 'text-red-400' : 'text-gray-200'}">{barcodeFound.giacenza}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="text-xs text-gray-400 shrink-0">Quantità da aggiungere</label>
+            <input
+              class="input w-24 text-sm py-1"
+              type="number"
+              min="1"
+              bind:value={caricoRapidoQty}
+            />
+            <button
+              class="btn-primary text-sm px-4 py-1.5 shrink-0"
+              on:click={eseguiCaricoRapido}
+              disabled={barcodeLoading || caricoRapidoQty < 1}
+            >
+              {barcodeLoading ? '...' : 'Aggiungi al magazzino'}
+            </button>
+          </div>
+        </div>
+      {:else if barcodeNotFound}
+        <div class="rounded-lg bg-yellow-950/30 border border-yellow-800/40 px-4 py-3 space-y-2">
+          <p class="text-yellow-300 text-sm">Ricambio non trovato per "<span class="font-mono">{barcodeInput.trim()}</span>"</p>
+          <button class="btn-secondary text-xs" on:click={apriCreazioneDaBarcode}>+ Crea nuovo ricambio</button>
+        </div>
+      {/if}
+
+      <div class="pt-1 flex justify-end">
+        <button class="btn-secondary text-xs" on:click={closeCaricoRapido}>Chiudi</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <div class="p-6 space-y-4">
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-semibold text-white">Magazzino</h1>
@@ -192,6 +354,7 @@
         </svg>
         Esporta CSV
       </button>
+      <button class="btn-secondary" on:click={openCaricoRapido}>📦 Carico rapido</button>
       <button class="btn-primary" on:click={() => { cancelForm(); showForm = true }}>+ Nuovo {vocRicambio.toLowerCase()}</button>
     </div>
   </div>
