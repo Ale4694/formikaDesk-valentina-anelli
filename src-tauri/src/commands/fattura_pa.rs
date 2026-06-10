@@ -2,7 +2,6 @@ use crate::{AppError, AppState};
 use crate::models::{Cliente, DocumentoCompleto, RigaDocumento};
 use std::collections::HashMap;
 use tauri::State;
-use tauri::Manager;
 
 #[derive(sqlx::FromRow)]
 struct ImpostazioneRow {
@@ -277,7 +276,6 @@ fn build_xml(
 pub async fn genera_fattura_pa(
     documento_id: i64,
     state: State<'_, AppState>,
-    app: tauri::AppHandle,
 ) -> Result<String, AppError> {
     let documento = sqlx::query_as::<_, crate::models::Documento>(
         "SELECT * FROM documenti WHERE id=?",
@@ -319,14 +317,7 @@ pub async fn genera_fattura_pa(
 
     let xml = build_xml(&doc_completo, cliente.as_ref(), &imp);
 
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-
-    let fatture_dir = app_dir.join("fatture_pa");
-    std::fs::create_dir_all(&fatture_dir)
-        .map_err(|e| AppError::Internal(format!("Errore creazione directory: {e}")))?;
+    let fatture_dir = state.fatture_dir.clone();
 
     let anno = doc_completo.documento.data.get(..4).unwrap_or("0000");
     let numero_safe = doc_completo

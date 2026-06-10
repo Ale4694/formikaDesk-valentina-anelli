@@ -11,6 +11,9 @@ pub use error::AppError;
 
 pub struct AppState {
     pub db: SqlitePool,
+    pub db_path: std::path::PathBuf,
+    pub fatture_dir: std::path::PathBuf,
+    pub backup_dir: std::path::PathBuf,
 }
 
 pub struct LicenseState {
@@ -26,19 +29,46 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            let app_dir = app
+            // Percorso legacy (AppData) — usato solo per licenza e migrazione DB
+            let legacy_dir = app
                 .path()
                 .app_data_dir()
                 .expect("impossibile ottenere app_data_dir");
-            std::fs::create_dir_all(&app_dir)
-                .expect("impossibile creare la directory dati");
+            std::fs::create_dir_all(&legacy_dir)
+                .expect("impossibile creare la directory dati legacy");
 
-            let license_info = commands::license::check_license_at_path(&app_dir);
+            let license_info = commands::license::check_license_at_path(&legacy_dir);
             app.manage(LicenseState {
                 info: std::sync::Mutex::new(license_info),
             });
 
-            let db_path = app_dir.join("autoparts.sqlite");
+            // Nuova struttura in Documenti/FormikaDesk/
+            let doc_dir = app
+                .path()
+                .document_dir()
+                .expect("impossibile ottenere la cartella Documenti");
+            let formika_dir = doc_dir.join("FormikaDesk");
+            let db_dir     = formika_dir.join("database");
+            let fatture_dir = formika_dir.join("fatture");
+            let backup_dir  = formika_dir.join("backup");
+
+            std::fs::create_dir_all(&db_dir)
+                .expect("impossibile creare FormikaDesk/database");
+            std::fs::create_dir_all(&fatture_dir)
+                .expect("impossibile creare FormikaDesk/fatture");
+            std::fs::create_dir_all(&backup_dir)
+                .expect("impossibile creare FormikaDesk/backup");
+
+            let db_path = db_dir.join("autoparts.sqlite");
+
+            // Migrazione automatica: se esiste il DB in AppData e non esiste ancora il nuovo, copialo
+            let legacy_db = legacy_dir.join("autoparts.sqlite");
+            if legacy_db.exists() && !db_path.exists() {
+                std::fs::copy(&legacy_db, &db_path)
+                    .expect("migrazione database da AppData a Documenti/FormikaDesk fallita");
+                log::info!("Database migrato da {:?} a {:?}", legacy_db, db_path);
+            }
+
             let db_url = format!("sqlite:{}", db_path.display());
 
             let pool = tauri::async_runtime::block_on(async {
@@ -58,7 +88,7 @@ pub fn run() {
                 pool
             });
 
-            app.manage(AppState { db: pool });
+            app.manage(AppState { db: pool, db_path, fatture_dir, backup_dir });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -86,16 +86,15 @@ pub async fn export_clienti_csv(state: tauri::State<'_, AppState>) -> Result<Str
 
 #[tauri::command]
 pub async fn backup_database(app: tauri::AppHandle) -> Result<String, AppError> {
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-    let db_path = app_dir.join("autoparts.sqlite");
+    let state = app.state::<AppState>();
+    let db_path = state.db_path.clone();
+    let backup_dir = state.backup_dir.clone();
 
     let save_path = app
         .dialog()
         .file()
         .add_filter("Database SQLite", &["sqlite"])
+        .set_directory(&backup_dir)
         .blocking_save_file();
 
     match save_path {
@@ -110,11 +109,8 @@ pub async fn backup_database(app: tauri::AppHandle) -> Result<String, AppError> 
 
 #[tauri::command]
 pub async fn restore_database(app: tauri::AppHandle) -> Result<String, AppError> {
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-    let db_path = app_dir.join("autoparts.sqlite");
+    let state = app.state::<AppState>();
+    let db_path = state.db_path.clone();
 
     let picked = app
         .dialog()
