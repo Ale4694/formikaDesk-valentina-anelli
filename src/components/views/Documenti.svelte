@@ -149,7 +149,7 @@
 <div class="p-6 space-y-4">
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-semibold text-white">Documenti</h1>
-    <button class="btn-primary" on:click={() => currentView.set('nuova-fattura')}>+ Nuova fattura</button>
+    <button class="btn-primary" on:click={() => currentView.set('nuova-fattura')}>+ Nuovo documento</button>
   </div>
 
   <!-- Filtro stato -->
@@ -276,7 +276,7 @@
                   </p>
                   {#if statoAttivo === 'tutti' && tipoAttivo === 'tutti'}
                     <button class="btn-primary text-xs mt-1" on:click={() => currentView.set('nuova-fattura')}>
-                      + Nuova fattura
+                      + Nuovo documento
                     </button>
                   {/if}
                 {/if}
