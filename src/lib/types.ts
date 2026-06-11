@@ -400,6 +400,7 @@ export interface ConfigIntestazione {
   piva: string | null
   cf: string | null
   telefono: string | null
+  email: string | null
 }
 
 export interface AppConfig {

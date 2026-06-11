@@ -1,11 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api } from '../../lib/api'
-  import { setError, setSuccess } from '../../lib/stores'
-  import type { Impostazioni } from '../../lib/types'
+  import { setError, setSuccess, appConfig } from '../../lib/stores'
+  import type { Impostazioni, ConfigIntestazione } from '../../lib/types'
 
   let loading = true
   let saving = false
+  let savingAzienda = false
+
+  // Form dati azienda (intestazione PDF/stampe)
+  let formAzienda: ConfigIntestazione = {
+    ragione_sociale: '',
+    sottotitolo: '',
+    indirizzo: '',
+    cap_citta: '',
+    piva: '',
+    cf: '',
+    telefono: '',
+    email: '',
+  }
 
   let form: Impostazioni = {
     ragione_sociale: '',
@@ -44,12 +57,49 @@
     try {
       const data = await api.impostazioni.get()
       form = { ...form, ...data }
+      // Inizializza form azienda dall'appConfig già caricato
+      const cfg = await api.config.get()
+      if (cfg.intestazione) {
+        formAzienda = {
+          ragione_sociale: cfg.intestazione.ragione_sociale ?? '',
+          sottotitolo:     cfg.intestazione.sottotitolo     ?? '',
+          indirizzo:       cfg.intestazione.indirizzo       ?? '',
+          cap_citta:       cfg.intestazione.cap_citta       ?? '',
+          piva:            cfg.intestazione.piva            ?? '',
+          cf:              cfg.intestazione.cf              ?? '',
+          telefono:        cfg.intestazione.telefono         ?? '',
+          email:           cfg.intestazione.email           ?? '',
+        }
+      }
     } catch (e: any) {
       setError(e?.message ?? 'Errore caricamento impostazioni')
     } finally {
       loading = false
     }
   })
+
+  async function salvaAzienda() {
+    if (savingAzienda) return
+    savingAzienda = true
+    try {
+      const updatedConfig = await api.config.salvaIntestazione({
+        ragione_sociale: formAzienda.ragione_sociale,
+        sottotitolo:     formAzienda.sottotitolo     || null,
+        indirizzo:       formAzienda.indirizzo       || null,
+        cap_citta:       formAzienda.cap_citta       || null,
+        piva:            formAzienda.piva            || null,
+        cf:              formAzienda.cf              || null,
+        telefono:        formAzienda.telefono        || null,
+        email:           formAzienda.email           || null,
+      })
+      appConfig.set(updatedConfig)
+      setSuccess('Dati azienda salvati')
+    } catch (e: any) {
+      setError(e?.message ?? 'Errore salvataggio dati azienda')
+    } finally {
+      savingAzienda = false
+    }
+  }
 
   async function salva() {
     if (saving) return
@@ -79,10 +129,124 @@
       <div class="w-7 h-7 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
   {:else}
+    <!-- Sezione Dati Azienda -->
+    <form on:submit|preventDefault={salvaAzienda} class="card p-6 space-y-5">
+      <div>
+        <h2 class="text-sm font-semibold text-white">Dati Azienda</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Questi dati appaiono nell'intestazione delle fatture e dei documenti stampati.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4">
+        <div>
+          <label class="label" for="az_ragione_sociale">Ragione Sociale *</label>
+          <input
+            id="az_ragione_sociale"
+            class="input"
+            type="text"
+            bind:value={formAzienda.ragione_sociale}
+            placeholder="Es. ANELLI RICAMBI"
+          />
+        </div>
+
+        <div>
+          <label class="label" for="az_sottotitolo">Sottotitolo</label>
+          <input
+            id="az_sottotitolo"
+            class="input"
+            type="text"
+            bind:value={formAzienda.sottotitolo}
+            placeholder="Es. di Rossi Mario"
+          />
+        </div>
+
+        <div>
+          <label class="label" for="az_indirizzo">Indirizzo</label>
+          <input
+            id="az_indirizzo"
+            class="input"
+            type="text"
+            bind:value={formAzienda.indirizzo}
+            placeholder="Es. Via Roma, 1"
+          />
+        </div>
+
+        <div>
+          <label class="label" for="az_cap_citta">CAP e Città</label>
+          <input
+            id="az_cap_citta"
+            class="input"
+            type="text"
+            bind:value={formAzienda.cap_citta}
+            placeholder="Es. 92025 Casteltermini (AG)"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="label" for="az_piva">Partita IVA</label>
+            <input
+              id="az_piva"
+              class="input font-mono"
+              type="text"
+              maxlength="11"
+              bind:value={formAzienda.piva}
+              placeholder="01234567890"
+            />
+          </div>
+          <div>
+            <label class="label" for="az_cf">Codice Fiscale</label>
+            <input
+              id="az_cf"
+              class="input font-mono uppercase"
+              type="text"
+              maxlength="16"
+              bind:value={formAzienda.cf}
+              placeholder="RSSMRA80A01H501Z"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="label" for="az_telefono">Telefono</label>
+            <input
+              id="az_telefono"
+              class="input"
+              type="text"
+              bind:value={formAzienda.telefono}
+              placeholder="Es. 0922 123456"
+            />
+          </div>
+          <div>
+            <label class="label" for="az_email">Email</label>
+            <input
+              id="az_email"
+              class="input"
+              type="email"
+              bind:value={formAzienda.email}
+              placeholder="info@esempio.it"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="btn-primary" disabled={savingAzienda}>
+          {savingAzienda ? 'Salvataggio…' : 'Salva dati azienda'}
+        </button>
+      </div>
+    </form>
+
+    <!-- Sezione FatturaPA -->
     <form on:submit|preventDefault={salva} class="card p-6 space-y-5">
-      <p class="text-xs text-gray-500">
-        Questi dati vengono usati per generare il file XML FatturaPA. Compilali correttamente prima di esportare fatture elettroniche.
-      </p>
+      <div>
+        <h2 class="text-sm font-semibold text-white">Dati FatturaPA</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Questi dati vengono usati per generare il file XML FatturaPA. Compilali correttamente prima di esportare fatture elettroniche.
+        </p>
+      </div>
 
       <div class="grid grid-cols-1 gap-4">
         <div>

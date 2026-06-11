@@ -9,7 +9,7 @@ import type {
   OrdineCompleto, NuovoOrdineFornitore,
   ReportMensile, ScadenzaDocumento,
   ScontrinoCompleto, NuovoScontrino,
-  Impostazioni, LicenseInfo, AppConfig,
+  Impostazioni, LicenseInfo, AppConfig, ConfigIntestazione,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -107,6 +107,8 @@ export const api = {
   },
   config: {
     get: () => call<AppConfig>('get_config'),
+    salvaIntestazione: (intestazione: ConfigIntestazione) =>
+      call<AppConfig>('salva_intestazione', { intestazione }),
   },
   magazzino: {
     caricoRapido: (codice: string, quantita: number) =>

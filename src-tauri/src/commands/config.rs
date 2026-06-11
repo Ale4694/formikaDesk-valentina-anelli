@@ -11,6 +11,7 @@ pub struct Intestazione {
     pub piva: Option<String>,
     pub cf: Option<String>,
     pub telefono: Option<String>,
+    pub email: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,6 +25,18 @@ pub struct AppConfig {
 }
 
 pub fn read_config(app: &tauri::AppHandle) -> Result<AppConfig, String> {
+    // Preferisce l'override in app_data_dir (scritto dall'utente) rispetto al bundle
+    if let Ok(data_dir) = app.path().app_data_dir() {
+        let override_path = data_dir.join("config.json");
+        if override_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&override_path) {
+                if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+                    return Ok(config);
+                }
+            }
+        }
+    }
+    // Fallback al config bundled nell'app
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let config_path = resource_dir.join("config.json");
     let content = std::fs::read_to_string(&config_path)
@@ -34,4 +47,21 @@ pub fn read_config(app: &tauri::AppHandle) -> Result<AppConfig, String> {
 #[tauri::command]
 pub fn get_config(app: tauri::AppHandle) -> Result<AppConfig, String> {
     read_config(&app)
+}
+
+#[tauri::command]
+pub fn salva_intestazione(intestazione: Intestazione, app: tauri::AppHandle) -> Result<AppConfig, String> {
+    let mut config = read_config(&app)?;
+    config.intestazione = Some(intestazione);
+
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("Impossibile creare directory: {}", e))?;
+    let override_path = data_dir.join("config.json");
+    let json = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Errore serializzazione: {}", e))?;
+    std::fs::write(&override_path, json)
+        .map_err(|e| format!("Impossibile scrivere config: {}", e))?;
+
+    Ok(config)
 }
