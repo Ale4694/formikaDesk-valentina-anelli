@@ -392,8 +392,19 @@ export interface RicambioResult {
   nuova_giacenza: number | null
 }
 
+export interface ConfigIntestazione {
+  ragione_sociale: string
+  sottotitolo: string | null
+  indirizzo: string | null
+  cap_citta: string | null
+  piva: string | null
+  cf: string | null
+  telefono: string | null
+}
+
 export interface AppConfig {
   nome_attivita: string
+  intestazione: ConfigIntestazione | null
   tipo: string
   moduli: string[]
   vocabolario: Record<string, string>

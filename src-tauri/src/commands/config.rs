@@ -3,8 +3,20 @@ use std::collections::HashMap;
 use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Intestazione {
+    pub ragione_sociale: String,
+    pub sottotitolo: Option<String>,
+    pub indirizzo: Option<String>,
+    pub cap_citta: Option<String>,
+    pub piva: Option<String>,
+    pub cf: Option<String>,
+    pub telefono: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub nome_attivita: String,
+    pub intestazione: Option<Intestazione>,
     pub tipo: String,
     pub update_endpoint: String,
     pub moduli: Vec<String>,

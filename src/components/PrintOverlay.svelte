@@ -3,8 +3,13 @@
   import { printData, clienti, fornitori, formatCurrency, formatDate, appConfig } from '../lib/stores'
 
   const tipoLabel: Record<string, string> = {
-    fattura: 'FATTURA', preventivo: 'PREVENTIVO',
-    ddt: 'DOCUMENTO DI TRASPORTO', nota_credito: 'NOTA DI CREDITO',
+    fattura:           'FATTURA',
+    preventivo:        'PREVENTIVO',
+    ddt:               'DOCUMENTO DI TRASPORTO',
+    nota_credito:      'NOTA DI CREDITO',
+    vendita_banco:     'VENDITA BANCO',
+    buono:             'BUONO',
+    fattura_differita: 'FATTURA DIFFERITA',
   }
 
   $: doc = $printData?.documento
@@ -22,16 +27,33 @@
 </script>
 
 <div id="print-overlay">
-  <div class="pg-header">{$appConfig?.nome_attivita ?? 'FormikaDesk'}</div>
-  <div class="pg-footer">{$appConfig?.nome_attivita ?? 'FormikaDesk'} — Gestionale professionale</div>
+  <div class="pg-header">{$appConfig?.intestazione?.ragione_sociale ?? $appConfig?.nome_attivita ?? 'FormikaDesk'}</div>
+  <div class="pg-footer">{$appConfig?.intestazione?.ragione_sociale ?? $appConfig?.nome_attivita ?? 'FormikaDesk'} — P.IVA {$appConfig?.intestazione?.piva ?? ''}</div>
 
   {#if $printData && doc}
     <div class="inv">
       <!-- Intestazione -->
       <div class="inv-head">
         <div class="inv-company">
-          <div class="inv-company-name">{$appConfig?.nome_attivita ?? 'FormikaDesk'}</div>
-          <div class="inv-company-sub">Ricambi Auto</div>
+          <div class="inv-company-name">{$appConfig?.intestazione?.ragione_sociale ?? $appConfig?.nome_attivita ?? 'FormikaDesk'}</div>
+          {#if $appConfig?.intestazione?.sottotitolo}
+            <div class="inv-company-sub">{$appConfig.intestazione.sottotitolo}</div>
+          {/if}
+          {#if $appConfig?.intestazione?.indirizzo}
+            <div class="inv-company-detail">{$appConfig.intestazione.indirizzo}</div>
+          {/if}
+          {#if $appConfig?.intestazione?.cap_citta}
+            <div class="inv-company-detail">{$appConfig.intestazione.cap_citta}</div>
+          {/if}
+          {#if $appConfig?.intestazione?.piva}
+            <div class="inv-company-detail">P.IVA: {$appConfig.intestazione.piva}</div>
+          {/if}
+          {#if $appConfig?.intestazione?.cf}
+            <div class="inv-company-detail">C.F.: {$appConfig.intestazione.cf}</div>
+          {/if}
+          {#if $appConfig?.intestazione?.telefono}
+            <div class="inv-company-detail">Tel: {$appConfig.intestazione.telefono}</div>
+          {/if}
         </div>
         <div class="inv-meta">
           <div class="inv-tipo">{tipoLabel[doc.tipo_documento] ?? doc.tipo_documento.toUpperCase()}</div>
@@ -152,8 +174,16 @@
 
   :global(#print-overlay) .inv-company-sub {
     font-size: 9pt;
-    color: #666;
+    color: #444;
     margin-top: 1mm;
+    font-style: italic;
+  }
+
+  :global(#print-overlay) .inv-company-detail {
+    font-size: 8.5pt;
+    color: #555;
+    margin-top: 0.5mm;
+    line-height: 1.4;
   }
 
   :global(#print-overlay) .inv-meta {

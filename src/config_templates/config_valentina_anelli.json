@@ -1,5 +1,14 @@
 {
-  "nome_attivita": "Valentina Anelli Autoricambi",
+  "nome_attivita": "Anelli Ricambi",
+  "intestazione": {
+    "ragione_sociale": "ANELLI RICAMBI",
+    "sottotitolo": "di Anelli Valentina Maria Rita",
+    "indirizzo": "Via A. Fanfani, 47",
+    "cap_citta": "92024 Canicattì (AG)",
+    "piva": "01986540852",
+    "cf": "NLLVNT82S56H792E",
+    "telefono": "0922 735146"
+  },
   "tipo": "officina",
   "update_endpoint": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/latest/download/latest.json",
   "moduli": [
