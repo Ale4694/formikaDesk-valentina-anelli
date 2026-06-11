@@ -37,6 +37,8 @@
   let saving = false
   let editId: number | null = null
   let search = ''
+  const PAGE_SIZE = 50
+  let page = 0
 
   // Modal conferma eliminazione
   let confirmOpen = false
@@ -60,6 +62,10 @@
     const cmp = String(av).localeCompare(String(bv), 'it')
     return sortDir === 'asc' ? cmp : -cmp
   })
+
+  // Reset pagina quando cambiano filtri o ordinamento
+  $: { search; sortCol; sortDir; page = 0 }
+  $: paged = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   function startEdit(c: (typeof $clienti)[0]) {
     editId = c.id; form = { ...c }; showForm = true
@@ -169,7 +175,7 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-800">
-        {#each sorted as c}
+        {#each paged as c}
           <tr class="table-row-hover">
             <td class="px-4 py-3 font-medium text-gray-200">{c.ragione_sociale}</td>
             <td class="px-4 py-3 font-mono text-xs text-gray-400">{c.partita_iva ?? '—'}</td>
@@ -199,5 +205,20 @@
         {/each}
       </tbody>
     </table>
+    {#if sorted.length > PAGE_SIZE}
+      <div class="flex items-center justify-between px-4 py-2.5 border-t border-gray-800 text-xs text-gray-500">
+        <button
+          class="btn-secondary text-xs px-3 py-1 disabled:opacity-40"
+          disabled={page === 0}
+          on:click={() => page--}
+        >← Prec.</button>
+        <span>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} di {sorted.length}</span>
+        <button
+          class="btn-secondary text-xs px-3 py-1 disabled:opacity-40"
+          disabled={(page + 1) * PAGE_SIZE >= sorted.length}
+          on:click={() => page++}
+        >Succ. →</button>
+      </div>
+    {/if}
   </div>
 </div>

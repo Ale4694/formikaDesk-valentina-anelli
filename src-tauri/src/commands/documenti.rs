@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::{Documento, DocumentoCompleto, NuovoDocumento, RigaDocumento};
+use crate::models::{Documento, DocumentoCompleto, NuovoDocumento, PaginatedResult, RigaDocumento};
 use chrono::NaiveDate;
 use tauri::State;
 
@@ -11,6 +11,43 @@ pub async fn get_all_documenti(state: State<'_, AppState>) -> Result<Vec<Documen
     .fetch_all(&state.db)
     .await?;
     Ok(docs)
+}
+
+#[tauri::command]
+pub async fn get_documenti_paginated(
+    page: i64,
+    page_size: i64,
+    stato: String,
+    tipo: String,
+    sort_col: String,
+    sort_dir: String,
+    state: State<'_, AppState>,
+) -> Result<PaginatedResult<Documento>, AppError> {
+    let page_size = page_size.clamp(1, 200);
+    let offset = page.max(0) * page_size;
+    let allowed = ["data","numero","tipo_documento","stato","totale_documento","cliente_id","created_at"];
+    let col = if allowed.contains(&sort_col.as_str()) { sort_col.as_str() } else { "data" };
+    let dir = if sort_dir == "desc" { "DESC" } else { "ASC" };
+    let stato_p: Option<&str> = if stato == "tutti" || stato.is_empty() { None } else { Some(&stato) };
+    let tipo_p: Option<&str>  = if tipo  == "tutti" || tipo.is_empty()  { None } else { Some(&tipo)  };
+
+    let total: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM documenti \
+         WHERE (? IS NULL OR stato = ?) AND (? IS NULL OR tipo_documento = ?)"
+    ).bind(stato_p).bind(stato_p).bind(tipo_p).bind(tipo_p)
+     .fetch_one(&state.db).await?;
+
+    let sql = format!(
+        "SELECT * FROM documenti \
+         WHERE (? IS NULL OR stato = ?) AND (? IS NULL OR tipo_documento = ?) \
+         ORDER BY {col} {dir}, id DESC LIMIT ? OFFSET ?"
+    );
+    let items = sqlx::query_as::<_, Documento>(&sql)
+        .bind(stato_p).bind(stato_p).bind(tipo_p).bind(tipo_p)
+        .bind(page_size).bind(offset)
+        .fetch_all(&state.db).await?;
+
+    Ok(PaginatedResult { items, total, page, page_size })
 }
 
 #[tauri::command]

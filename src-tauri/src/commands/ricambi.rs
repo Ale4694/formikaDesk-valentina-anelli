@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::{NuovoRicambio, Ricambio, RicambioResult};
+use crate::models::{NuovoRicambio, PaginatedResult, Ricambio, RicambioResult};
 use tauri::State;
 
 #[tauri::command]
@@ -20,6 +20,50 @@ pub async fn get_ricambio(id: i64, state: State<'_, AppState>) -> Result<Ricambi
         .await?
         .ok_or_else(|| AppError::NotFound(format!("ricambio id={id} non trovato")))?;
     Ok(ricambio)
+}
+
+#[tauri::command]
+pub async fn get_ricambi_paginated(
+    page: i64,
+    page_size: i64,
+    search: String,
+    sort_col: String,
+    sort_dir: String,
+    state: State<'_, AppState>,
+) -> Result<PaginatedResult<Ricambio>, AppError> {
+    let page_size = page_size.clamp(1, 200);
+    let offset = page.max(0) * page_size;
+    let allowed = ["descrizione","codice_interno","codice_oem","giacenza",
+                   "prezzo_acquisto","prezzo_vendita","marca","posizione","created_at"];
+    let col = if allowed.contains(&sort_col.as_str()) { sort_col.as_str() } else { "descrizione" };
+    let dir = if sort_dir == "desc" { "DESC" } else { "ASC" };
+    let pattern = search.trim().to_string();
+
+    if pattern.is_empty() {
+        let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM ricambi")
+            .fetch_one(&state.db).await?;
+        let sql = format!("SELECT * FROM ricambi ORDER BY {col} {dir} LIMIT ? OFFSET ?");
+        let items = sqlx::query_as::<_, Ricambio>(&sql)
+            .bind(page_size).bind(offset)
+            .fetch_all(&state.db).await?;
+        Ok(PaginatedResult { items, total, page, page_size })
+    } else {
+        let like = format!("%{pattern}%");
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM ricambi \
+             WHERE descrizione LIKE ? OR codice_interno LIKE ? OR codice_oem LIKE ? OR marca LIKE ?"
+        ).bind(&like).bind(&like).bind(&like).bind(&like).fetch_one(&state.db).await?;
+        let sql = format!(
+            "SELECT * FROM ricambi \
+             WHERE descrizione LIKE ? OR codice_interno LIKE ? OR codice_oem LIKE ? OR marca LIKE ? \
+             ORDER BY {col} {dir} LIMIT ? OFFSET ?"
+        );
+        let items = sqlx::query_as::<_, Ricambio>(&sql)
+            .bind(&like).bind(&like).bind(&like).bind(&like)
+            .bind(page_size).bind(offset)
+            .fetch_all(&state.db).await?;
+        Ok(PaginatedResult { items, total, page, page_size })
+    }
 }
 
 #[tauri::command]

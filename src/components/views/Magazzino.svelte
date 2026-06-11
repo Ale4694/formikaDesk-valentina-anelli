@@ -1,22 +1,46 @@
 <script lang="ts">
-  import { createEventDispatcher, tick } from 'svelte'
+  import { createEventDispatcher, onMount, tick } from 'svelte'
   import { ricambi, fornitori, formatCurrency, setError, setSuccess, appConfig } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { NuovoRicambio, Ricambio } from '../../lib/types'
   import ConfirmModal from '../ConfirmModal.svelte'
 
+  const PAGE_SIZE = 50
+  let page = 0
+  let pageTotal = 0
+  let pageItems: Ricambio[] = []
+  let pageLoading = false
+  let searchTimer: ReturnType<typeof setTimeout> | null = null
+
   type SortDir = 'asc' | 'desc'
   let sortCol = 'descrizione'
   let sortDir: SortDir = 'asc'
 
+  async function loadPage() {
+    pageLoading = true
+    try {
+      const res = await api.ricambi.getPaginated(page, PAGE_SIZE, search.trim(), sortCol, sortDir)
+      pageItems = res.items
+      pageTotal = res.total
+    } catch (e: any) {
+      setError(e?.message ?? 'Errore caricamento magazzino')
+    } finally {
+      pageLoading = false
+    }
+  }
+
+  onMount(() => loadPage())
+
   function toggleSort(col: string) {
     if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc' }
     else { sortCol = col; sortDir = 'asc' }
+    page = 0
+    loadPage()
   }
 
-  function sortVal(r: (typeof $ricambi)[0], col: string): string | number {
-    const v = (r as any)[col]
-    return v === null || v === undefined ? (sortDir === 'asc' ? '￿' : '') : v
+  function onSearchInput() {
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => { page = 0; loadPage() }, 350)
   }
 
   function downloadCsv(content: string, filename: string) {
@@ -74,13 +98,7 @@
 
   let form = emptyForm()
 
-  $: filtered = search.trim()
-    ? $ricambi.filter(r =>
-        r.descrizione.toLowerCase().includes(search.toLowerCase()) ||
-        r.codice_interno.toLowerCase().includes(search.toLowerCase()) ||
-        (r.codice_oem ?? '').toLowerCase().includes(search.toLowerCase())
-      )
-    : $ricambi
+  // La tabella usa pageItems (server-side). $ricambi resta in store per barcode e NuovaFattura.
 
   $: vocRicambio   = $appConfig?.vocabolario?.ricambio    ?? 'Ricambio'
   $: vocRicambi    = $appConfig?.vocabolario?.ricambi     ?? 'Ricambi'
@@ -100,13 +118,6 @@
     { col: 'posizione',       label: vocPosizione,    align: 'left'  },
   ]
 
-  $: sorted = [...filtered].sort((a, b) => {
-    const av = sortVal(a, sortCol)
-    const bv = sortVal(b, sortCol)
-    if (typeof av === 'number' && typeof bv === 'number') return sortDir === 'asc' ? av - bv : bv - av
-    const cmp = String(av).localeCompare(String(bv), 'it')
-    return sortDir === 'asc' ? cmp : -cmp
-  })
 
   async function openCaricoRapido() {
     showCaricoRapido = true
@@ -207,6 +218,7 @@
     try {
       const updated = await api.ricambi.aggiornaGiacenza(ricambioId, 'carico', caricoQty, null, caricoNote || null)
       ricambi.update(list => list.map(r => r.id === ricambioId ? updated : r))
+      pageItems = pageItems.map(r => r.id === ricambioId ? updated : r)
       caricoId = null
       caricoQty = 1
       caricoNote = ''
@@ -230,6 +242,7 @@
         ricambi.update(list => [...list, nuovo])
       }
       cancelForm()
+      await loadPage()
       dispatch('refresh')
     } catch (e: any) {
       setError(e?.message ?? 'Errore salvataggio')
@@ -252,6 +265,7 @@
     try {
       await api.ricambi.delete(id)
       ricambi.update(list => list.filter(r => r.id !== id))
+      await loadPage()
       dispatch('refresh')
     } catch (e: any) {
       setError(e?.message ?? 'Errore eliminazione')
@@ -392,7 +406,7 @@
     </div>
   {/if}
 
-  <input class="input max-w-sm" placeholder="Cerca per descrizione, codice..." bind:value={search}/>
+  <input class="input max-w-sm" placeholder="Cerca per descrizione, codice..." bind:value={search} on:input={onSearchInput}/>
 
   <div class="card overflow-hidden">
     <table class="w-full text-sm">
@@ -415,7 +429,7 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-800">
-        {#each sorted as r (r.id)}
+        {#each pageItems as r (r.id)}
           <tr class="transition-colors duration-100
             {r.giacenza < r.giacenza_minima
               ? 'bg-red-950/20 hover:bg-red-950/30'
@@ -495,22 +509,41 @@
           <tr>
             <td colspan="8" class="py-16 text-center">
               <div class="flex flex-col items-center gap-3 text-gray-600">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
-                <p class="text-sm">
-                  {#if search.trim()}
-                    Nessun {vocRicambio.toLowerCase()} corrisponde a "<span class="text-gray-400">{search}</span>"
-                  {:else}
-                    Magazzino vuoto — aggiungi il primo {vocRicambio.toLowerCase()}
-                  {/if}
-                </p>
+                {#if pageLoading}
+                  <div class="w-7 h-7 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                {:else}
+                  <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                  </svg>
+                  <p class="text-sm">
+                    {#if search.trim()}
+                      Nessun {vocRicambio.toLowerCase()} corrisponde a "<span class="text-gray-400">{search}</span>"
+                    {:else}
+                      Magazzino vuoto — aggiungi il primo {vocRicambio.toLowerCase()}
+                    {/if}
+                  </p>
+                {/if}
               </div>
             </td>
           </tr>
         {/each}
       </tbody>
     </table>
+    {#if pageTotal > PAGE_SIZE}
+      <div class="flex items-center justify-between px-4 py-2.5 border-t border-gray-800 text-xs text-gray-500">
+        <button
+          class="btn-secondary text-xs px-3 py-1 disabled:opacity-40"
+          disabled={page === 0}
+          on:click={() => { page--; loadPage() }}
+        >← Prec.</button>
+        <span>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, pageTotal)} di {pageTotal}</span>
+        <button
+          class="btn-secondary text-xs px-3 py-1 disabled:opacity-40"
+          disabled={(page + 1) * PAGE_SIZE >= pageTotal}
+          on:click={() => { page++; loadPage() }}
+        >Succ. →</button>
+      </div>
+    {/if}
   </div>
 </div>

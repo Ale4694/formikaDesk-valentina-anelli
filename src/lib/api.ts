@@ -10,6 +10,7 @@ import type {
   ReportMensile, ScadenzaDocumento,
   ScontrinoCompleto, NuovoScontrino,
   Impostazioni, LicenseInfo, AppConfig, ConfigIntestazione,
+  PaginatedResult,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -27,6 +28,8 @@ export const api = {
   },
   clienti: {
     getAll: () => call<Cliente[]>('get_all_clienti'),
+    getPaginated: (page: number, pageSize: number, search: string) =>
+      call<PaginatedResult<Cliente>>('get_clienti_paginated', { page, pageSize, search }),
     get: (id: number) => call<Cliente>('get_cliente', { id }),
     create: (cliente: NuovoCliente) => call<Cliente>('create_cliente', { cliente }),
     update: (id: number, cliente: NuovoCliente) => call<Cliente>('update_cliente', { id, cliente }),
@@ -38,6 +41,8 @@ export const api = {
   },
   ricambi: {
     getAll: () => call<Ricambio[]>('get_all_ricambi'),
+    getPaginated: (page: number, pageSize: number, search: string, sortCol: string, sortDir: string) =>
+      call<PaginatedResult<Ricambio>>('get_ricambi_paginated', { page, pageSize, search, sortCol, sortDir }),
     get: (id: number) => call<Ricambio>('get_ricambio', { id }),
     search: (query: string) => call<Ricambio[]>('search_ricambi', { query }),
     create: (ricambio: NuovoRicambio) => call<Ricambio>('create_ricambio', { ricambio }),
@@ -48,6 +53,8 @@ export const api = {
   },
   documenti: {
     getAll: () => call<Documento[]>('get_all_documenti'),
+    getPaginated: (page: number, pageSize: number, stato: string, tipo: string, sortCol: string, sortDir: string) =>
+      call<PaginatedResult<Documento>>('get_documenti_paginated', { page, pageSize, stato, tipo, sortCol, sortDir }),
     get: (id: number) => call<DocumentoCompleto>('get_documento', { id }),
     create: (doc: NuovoDocumento) => call<DocumentoCompleto>('create_documento', { doc }),
     updateStato: (

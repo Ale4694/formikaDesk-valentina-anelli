@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::{Cliente, NuovoCliente};
+use crate::models::{Cliente, NuovoCliente, PaginatedResult};
 use tauri::State;
 
 #[tauri::command]
@@ -10,6 +10,40 @@ pub async fn get_all_clienti(state: State<'_, AppState>) -> Result<Vec<Cliente>,
     .fetch_all(&state.db)
     .await?;
     Ok(clienti)
+}
+
+#[tauri::command]
+pub async fn get_clienti_paginated(
+    page: i64,
+    page_size: i64,
+    search: String,
+    state: State<'_, AppState>,
+) -> Result<PaginatedResult<Cliente>, AppError> {
+    let page_size = page_size.clamp(1, 200);
+    let offset = page.max(0) * page_size;
+    let pattern = search.trim().to_string();
+
+    if pattern.is_empty() {
+        let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM clienti")
+            .fetch_one(&state.db).await?;
+        let items = sqlx::query_as::<_, Cliente>(
+            "SELECT * FROM clienti ORDER BY ragione_sociale ASC LIMIT ? OFFSET ?"
+        ).bind(page_size).bind(offset).fetch_all(&state.db).await?;
+        Ok(PaginatedResult { items, total, page, page_size })
+    } else {
+        let like = format!("%{pattern}%");
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM clienti \
+             WHERE ragione_sociale LIKE ? OR partita_iva LIKE ? OR telefono LIKE ? OR email LIKE ?"
+        ).bind(&like).bind(&like).bind(&like).bind(&like).fetch_one(&state.db).await?;
+        let items = sqlx::query_as::<_, Cliente>(
+            "SELECT * FROM clienti \
+             WHERE ragione_sociale LIKE ? OR partita_iva LIKE ? OR telefono LIKE ? OR email LIKE ? \
+             ORDER BY ragione_sociale ASC LIMIT ? OFFSET ?"
+        ).bind(&like).bind(&like).bind(&like).bind(&like)
+         .bind(page_size).bind(offset).fetch_all(&state.db).await?;
+        Ok(PaginatedResult { items, total, page, page_size })
+    }
 }
 
 #[tauri::command]

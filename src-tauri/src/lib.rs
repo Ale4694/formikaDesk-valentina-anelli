@@ -93,11 +93,13 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::clienti::get_all_clienti,
+            commands::clienti::get_clienti_paginated,
             commands::clienti::get_cliente,
             commands::clienti::create_cliente,
             commands::clienti::update_cliente,
             commands::clienti::delete_cliente,
             commands::ricambi::get_all_ricambi,
+            commands::ricambi::get_ricambi_paginated,
             commands::ricambi::get_ricambio,
             commands::ricambi::search_ricambi,
             commands::ricambi::create_ricambio,
@@ -108,6 +110,7 @@ pub fn run() {
             commands::fornitori::get_all_fornitori,
             commands::fornitori::create_fornitore,
             commands::documenti::get_all_documenti,
+            commands::documenti::get_documenti_paginated,
             commands::documenti::get_documento,
             commands::documenti::create_documento,
             commands::documenti::update_stato_documento,

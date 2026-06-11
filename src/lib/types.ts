@@ -392,6 +392,13 @@ export interface RicambioResult {
   nuova_giacenza: number | null
 }
 
+export interface PaginatedResult<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export interface ConfigIntestazione {
   ragione_sociale: string
   sottotitolo: string | null

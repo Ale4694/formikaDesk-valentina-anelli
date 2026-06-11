@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, tick } from 'svelte'
+  import { createEventDispatcher, onMount, tick } from 'svelte'
   import { documenti, clienti, formatCurrency, formatDate, setError, setSuccess, currentView, printData } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { Documento } from '../../lib/types'
@@ -41,33 +41,44 @@
   const tipiFilter = ['tutti', 'fattura', 'ddt', 'preventivo', 'nota_credito', 'vendita_banco', 'buono', 'fattura_differita'] as const
   let tipoAttivo: typeof tipiFilter[number] = 'tutti'
 
+  // Paginazione server-side
+  const PAGE_SIZE = 50
+  let page = 0
+  let pageTotal = 0
+  let pageItems: Documento[] = []
+  let pageLoading = false
+
   // Ordinamento
   type SortDir = 'asc' | 'desc'
   let sortCol = 'data'
   let sortDir: SortDir = 'desc'
 
+  async function loadPage() {
+    pageLoading = true
+    try {
+      const res = await api.documenti.getPaginated(page, PAGE_SIZE, statoAttivo, tipoAttivo, sortCol, sortDir)
+      pageItems = res.items
+      pageTotal = res.total
+    } catch (e: any) {
+      setError(e?.message ?? 'Errore caricamento documenti')
+    } finally {
+      pageLoading = false
+    }
+  }
+
+  onMount(() => loadPage())
+
   function toggleSort(col: string) {
     if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc' }
     else { sortCol = col; sortDir = 'asc' }
+    page = 0
+    loadPage()
   }
 
-  function sortVal(d: Documento, col: string): string | number {
-    const v = (d as any)[col]
-    return v === null || v === undefined ? (sortDir === 'asc' ? '￿' : '') : v
+  function onFilterChange() {
+    page = 0
+    loadPage()
   }
-
-  $: filtrati = $documenti.filter(d =>
-    (statoAttivo === 'tutti' || d.stato === statoAttivo) &&
-    (tipoAttivo === 'tutti' || d.tipo_documento === tipoAttivo)
-  )
-
-  $: ordinati = [...filtrati].sort((a, b) => {
-    const av = sortVal(a, sortCol)
-    const bv = sortVal(b, sortCol)
-    if (typeof av === 'number' && typeof bv === 'number') return sortDir === 'asc' ? av - bv : bv - av
-    const cmp = String(av).localeCompare(String(bv), 'it')
-    return sortDir === 'asc' ? cmp : -cmp
-  })
 
   function nomeCliente(id: number | null) {
     if (!id) return '—'
@@ -78,6 +89,7 @@
     try {
       const updated = await api.documenti.updateStato(id, stato)
       documenti.update(list => list.map(d => d.id === id ? updated : d))
+      pageItems = pageItems.map(d => d.id === id ? updated : d)
     } catch (e: any) { setError(e?.message ?? 'Errore') }
   }
 
@@ -98,6 +110,7 @@
     try {
       const updated = await api.documenti.updateStato(pagamentoDocId, 'pagato', e.detail)
       documenti.update(list => list.map(d => d.id === updated.id ? updated : d))
+      pageItems = pageItems.map(d => d.id === updated.id ? updated : d)
     } catch (err: any) { setError(err?.message ?? 'Errore registrazione pagamento') }
     pagamentoDocId = null
   }
@@ -147,7 +160,7 @@
           {statoAttivo === s
             ? 'bg-brand-600 text-white'
             : 'bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700'}"
-        on:click={() => statoAttivo = s}
+        on:click={() => { statoAttivo = s; onFilterChange() }}
       >
         {s === 'tutti' ? 'Tutti' : s.charAt(0).toUpperCase() + s.slice(1)}
       </button>
@@ -162,7 +175,7 @@
           {tipoAttivo === t
             ? 'bg-gray-600 text-white'
             : 'bg-gray-800/60 text-gray-500 hover:text-gray-300 hover:bg-gray-800'}"
-        on:click={() => tipoAttivo = t}
+        on:click={() => { tipoAttivo = t; onFilterChange() }}
       >
         {t === 'tutti' ? 'Tutti i tipi' : (tipoLabel[t] ?? t)}
       </button>
@@ -197,7 +210,7 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-800">
-        {#each ordinati as d}
+        {#each pageItems as d}
           <tr class="table-row-hover">
             <td class="px-4 py-3">
               <span class="{tipoBadge[d.tipo_documento] ?? 'badge-gray'} text-xs">
@@ -247,21 +260,25 @@
           <tr>
             <td colspan="7" class="py-16 text-center">
               <div class="flex flex-col items-center gap-3 text-gray-600">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <p class="text-sm">
-                  {#if statoAttivo !== 'tutti'}
-                    Nessun documento con stato "<span class="text-gray-400">{statoAttivo}</span>"
-                  {:else}
-                    Nessun documento — crea la prima fattura
+                {#if pageLoading}
+                  <div class="w-7 h-7 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                {:else}
+                  <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  <p class="text-sm">
+                    {#if statoAttivo !== 'tutti' || tipoAttivo !== 'tutti'}
+                      Nessun documento con i filtri selezionati
+                    {:else}
+                      Nessun documento — crea la prima fattura
+                    {/if}
+                  </p>
+                  {#if statoAttivo === 'tutti' && tipoAttivo === 'tutti'}
+                    <button class="btn-primary text-xs mt-1" on:click={() => currentView.set('nuova-fattura')}>
+                      + Nuova fattura
+                    </button>
                   {/if}
-                </p>
-                {#if statoAttivo === 'tutti'}
-                  <button class="btn-primary text-xs mt-1" on:click={() => currentView.set('nuova-fattura')}>
-                    + Nuova fattura
-                  </button>
                 {/if}
               </div>
             </td>
@@ -269,5 +286,20 @@
         {/each}
       </tbody>
     </table>
+    {#if pageTotal > PAGE_SIZE}
+      <div class="flex items-center justify-between px-4 py-2.5 border-t border-gray-800 text-xs text-gray-500">
+        <button
+          class="btn-secondary text-xs px-3 py-1 disabled:opacity-40"
+          disabled={page === 0}
+          on:click={() => { page--; loadPage() }}
+        >← Prec.</button>
+        <span>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, pageTotal)} di {pageTotal}</span>
+        <button
+          class="btn-secondary text-xs px-3 py-1 disabled:opacity-40"
+          disabled={(page + 1) * PAGE_SIZE >= pageTotal}
+          on:click={() => { page++; loadPage() }}
+        >Succ. →</button>
+      </div>
+    {/if}
   </div>
 </div>
