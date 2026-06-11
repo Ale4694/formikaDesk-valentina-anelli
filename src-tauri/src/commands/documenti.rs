@@ -19,6 +19,7 @@ pub async fn get_documenti_paginated(
     page_size: i64,
     stato: String,
     tipo: String,
+    search: String,
     sort_col: String,
     sort_dir: String,
     state: State<'_, AppState>,
@@ -30,20 +31,33 @@ pub async fn get_documenti_paginated(
     let dir = if sort_dir == "desc" { "DESC" } else { "ASC" };
     let stato_p: Option<&str> = if stato == "tutti" || stato.is_empty() { None } else { Some(&stato) };
     let tipo_p: Option<&str>  = if tipo  == "tutti" || tipo.is_empty()  { None } else { Some(&tipo)  };
+    let search_like: Option<String> = if search.trim().is_empty() { None } else { Some(format!("%{}%", search.trim())) };
+    let search_p: Option<&str> = search_like.as_deref();
 
     let total: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM documenti \
-         WHERE (? IS NULL OR stato = ?) AND (? IS NULL OR tipo_documento = ?)"
-    ).bind(stato_p).bind(stato_p).bind(tipo_p).bind(tipo_p)
-     .fetch_one(&state.db).await?;
+        "SELECT COUNT(*) FROM documenti d \
+         LEFT JOIN clienti c ON c.id = d.cliente_id \
+         WHERE (? IS NULL OR d.stato = ?) \
+           AND (? IS NULL OR d.tipo_documento = ?) \
+           AND (? IS NULL OR d.numero LIKE ? OR c.ragione_sociale LIKE ?)"
+    )
+    .bind(stato_p).bind(stato_p)
+    .bind(tipo_p).bind(tipo_p)
+    .bind(search_p).bind(search_p).bind(search_p)
+    .fetch_one(&state.db).await?;
 
     let sql = format!(
-        "SELECT * FROM documenti \
-         WHERE (? IS NULL OR stato = ?) AND (? IS NULL OR tipo_documento = ?) \
-         ORDER BY {col} {dir}, id DESC LIMIT ? OFFSET ?"
+        "SELECT d.* FROM documenti d \
+         LEFT JOIN clienti c ON c.id = d.cliente_id \
+         WHERE (? IS NULL OR d.stato = ?) \
+           AND (? IS NULL OR d.tipo_documento = ?) \
+           AND (? IS NULL OR d.numero LIKE ? OR c.ragione_sociale LIKE ?) \
+         ORDER BY d.{col} {dir}, d.id DESC LIMIT ? OFFSET ?"
     );
     let items = sqlx::query_as::<_, Documento>(&sql)
-        .bind(stato_p).bind(stato_p).bind(tipo_p).bind(tipo_p)
+        .bind(stato_p).bind(stato_p)
+        .bind(tipo_p).bind(tipo_p)
+        .bind(search_p).bind(search_p).bind(search_p)
         .bind(page_size).bind(offset)
         .fetch_all(&state.db).await?;
 

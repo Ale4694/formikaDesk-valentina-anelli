@@ -41,6 +41,16 @@
   const tipiFilter = ['tutti', 'fattura', 'ddt', 'preventivo', 'nota_credito', 'vendita_banco', 'buono', 'fattura_differita'] as const
   let tipoAttivo: typeof tipiFilter[number] = 'tutti'
 
+  // Ricerca testuale
+  let search = ''
+  let searchTimer: ReturnType<typeof setTimeout>
+
+  function onSearchInput(e: Event) {
+    search = (e.target as HTMLInputElement).value
+    clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => { page = 0; loadPage() }, 350)
+  }
+
   // Paginazione server-side
   const PAGE_SIZE = 50
   let page = 0
@@ -56,7 +66,7 @@
   async function loadPage() {
     pageLoading = true
     try {
-      const res = await api.documenti.getPaginated(page, PAGE_SIZE, statoAttivo, tipoAttivo, sortCol, sortDir)
+      const res = await api.documenti.getPaginated(page, PAGE_SIZE, statoAttivo, tipoAttivo, search.trim(), sortCol, sortDir)
       pageItems = res.items
       pageTotal = res.total
     } catch (e: any) {
@@ -77,6 +87,7 @@
 
   function onFilterChange() {
     page = 0
+    clearTimeout(searchTimer)
     loadPage()
   }
 
@@ -151,6 +162,14 @@
     <h1 class="text-xl font-semibold text-white">Documenti</h1>
     <button class="btn-primary" on:click={() => currentView.set('nuova-fattura')}>+ Nuovo documento</button>
   </div>
+
+  <!-- Ricerca testuale -->
+  <input
+    class="input max-w-sm"
+    placeholder="Cerca per numero o cliente..."
+    value={search}
+    on:input={onSearchInput}
+  />
 
   <!-- Filtro stato -->
   <div class="flex gap-1.5 flex-wrap">

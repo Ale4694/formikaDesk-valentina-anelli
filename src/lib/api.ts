@@ -53,8 +53,8 @@ export const api = {
   },
   documenti: {
     getAll: () => call<Documento[]>('get_all_documenti'),
-    getPaginated: (page: number, pageSize: number, stato: string, tipo: string, sortCol: string, sortDir: string) =>
-      call<PaginatedResult<Documento>>('get_documenti_paginated', { page, pageSize, stato, tipo, sortCol, sortDir }),
+    getPaginated: (page: number, pageSize: number, stato: string, tipo: string, search: string, sortCol: string, sortDir: string) =>
+      call<PaginatedResult<Documento>>('get_documenti_paginated', { page, pageSize, stato, tipo, search, sortCol, sortDir }),
     get: (id: number) => call<DocumentoCompleto>('get_documento', { id }),
     create: (doc: NuovoDocumento) => call<DocumentoCompleto>('create_documento', { doc }),
     updateStato: (
