@@ -145,7 +145,7 @@
   {/if}
 </div>
 
-<style>
+<style lang="css">
   #print-overlay {
     display: none;
   }
