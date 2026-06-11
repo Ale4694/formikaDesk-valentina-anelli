@@ -1,20 +1,25 @@
 {
-  "nome_attivita": "FormikaDesk",
+  "nome_attivita": "Anelli Ricambi",
+  "intestazione": {
+    "ragione_sociale": "ANELLI RICAMBI",
+    "sottotitolo": "di Anelli Valentina Maria Rita",
+    "indirizzo": "G. Matteotti, 65/E",
+    "cap_citta": "92025 Casteltermini (AG)",
+    "piva": "01986540852",
+    "cf": "NLLVNT82S56H792E",
+    "telefono": "",
+    "email": ""
+  },
   "tipo": "officina",
-  "update_endpoint": "https://github.com/Ale4694/formikaDesk/releases/latest/download/latest.json",
-  "moduli": ["magazzino", "clienti", "veicoli", "fornitori", "documenti", "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"],
+  "update_endpoint": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/latest/download/latest.json",
+  "moduli": [
+    "magazzino", "clienti", "veicoli", "fornitori", "documenti",
+    "ordini", "scadenzario", "cassa", "storico-cassa", "impostazioni"
+  ],
   "vocabolario": {
-    "ricambio": "Ricambio",
-    "ricambi": "Ricambi",
-    "codice_oem": "Codice OEM",
-    "modello_auto": "Modello auto",
-    "marca": "Marca",
-    "categoria": "Categoria",
-    "posizione": "Posizione",
-    "fornitore": "Fornitore",
-    "fornitori": "Fornitori",
-    "veicoli": "Veicoli",
-    "cliente": "Cliente",
-    "clienti": "Clienti"
+    "ricambio": "Ricambio", "ricambi": "Ricambi", "codice_oem": "Codice OEM",
+    "modello_auto": "Modello auto", "marca": "Marca", "categoria": "Categoria",
+    "posizione": "Posizione", "fornitore": "Fornitore", "fornitori": "Fornitori",
+    "veicoli": "Veicoli", "cliente": "Cliente", "clienti": "Clienti"
   }
 }
