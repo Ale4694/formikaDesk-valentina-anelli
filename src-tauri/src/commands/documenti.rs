@@ -61,17 +61,30 @@ pub async fn create_documento(
     }
     let totale_documento = totale_imponibile + totale_iva;
 
+    let tipi_senza_scadenza = ["vendita_banco", "buono"];
+    let scadenza_pagamento = if tipi_senza_scadenza.contains(&doc.tipo_documento.as_str()) {
+        None
+    } else {
+        let giorni = doc.giorni_pagamento.unwrap_or(30);
+        NaiveDate::parse_from_str(&doc.data, "%Y-%m-%d")
+            .ok()
+            .map(|d| (d + chrono::Duration::days(giorni)).to_string())
+    };
     let giorni = doc.giorni_pagamento.unwrap_or(30);
-    let scadenza_pagamento = NaiveDate::parse_from_str(&doc.data, "%Y-%m-%d")
-        .ok()
-        .map(|d| (d + chrono::Duration::days(giorni)).to_string());
+
+    let is_fattura_differita: i64 = if doc.tipo_documento == "fattura_differita" { 1 } else { 0 };
+    let ddt_collegati_json: Option<String> = doc
+        .ddt_collegati
+        .as_ref()
+        .map(|ids| serde_json::to_string(ids).unwrap_or_default());
 
     let mut tx = state.db.begin().await?;
 
     let doc_id = sqlx::query(
         "INSERT INTO documenti (tipo_documento, numero, data, cliente_id, fornitore_id, note,
-         totale_imponibile, totale_iva, totale_documento, scadenza_pagamento, giorni_pagamento)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         totale_imponibile, totale_iva, totale_documento, scadenza_pagamento, giorni_pagamento,
+         is_fattura_differita, ddt_collegati)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&doc.tipo_documento)
     .bind(&doc.numero)
@@ -84,6 +97,8 @@ pub async fn create_documento(
     .bind(totale_documento)
     .bind(&scadenza_pagamento)
     .bind(giorni)
+    .bind(is_fattura_differita)
+    .bind(&ddt_collegati_json)
     .execute(&mut *tx)
     .await?
     .last_insert_rowid();
@@ -115,7 +130,8 @@ pub async fn create_documento(
         .await?;
 
         if let Some(rid) = riga.ricambio_id {
-            if doc.tipo_documento == "fattura" || doc.tipo_documento == "ddt" {
+            let tipi_scarico = ["fattura", "ddt", "vendita_banco", "buono", "fattura_differita"];
+            if tipi_scarico.contains(&doc.tipo_documento.as_str()) {
                 sqlx::query(
                     "UPDATE ricambi SET giacenza=giacenza-?, updated_at=datetime('now') WHERE id=?",
                 )
@@ -131,6 +147,20 @@ pub async fn create_documento(
                 .bind(rid)
                 .bind(riga.quantita)
                 .bind(doc_id)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+    }
+
+    // Per fattura_differita: segna i DDT collegati come fatturati
+    if doc.tipo_documento == "fattura_differita" {
+        if let Some(ids) = &doc.ddt_collegati {
+            for ddt_id in ids {
+                sqlx::query(
+                    "UPDATE documenti SET fatturato=1, updated_at=datetime('now') WHERE id=?",
+                )
+                .bind(ddt_id)
                 .execute(&mut *tx)
                 .await?;
             }

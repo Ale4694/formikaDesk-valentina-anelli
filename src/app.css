@@ -54,4 +54,6 @@
   .badge-red { @apply badge bg-red-900/50 text-red-400 border border-red-800/50; }
   .badge-blue { @apply badge bg-blue-900/50 text-blue-400 border border-blue-800/50; }
   .badge-gray { @apply badge bg-gray-800 text-gray-400 border border-gray-700; }
+  .badge-purple { @apply badge bg-purple-900/50 text-purple-400 border border-purple-800/50; }
+  .badge-indigo { @apply badge bg-indigo-900/50 text-indigo-400 border border-indigo-800/50; }
 }

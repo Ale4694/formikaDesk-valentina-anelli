@@ -15,12 +15,31 @@
     bozza: 'badge-gray', confermato: 'badge-blue', pagato: 'badge-green', annullato: 'badge-red'
   }
   const tipoLabel: Record<string, string> = {
-    fattura: 'Fattura', preventivo: 'Preventivo', ddt: 'DDT', nota_credito: 'Nota credito'
+    fattura:           'Fattura',
+    preventivo:        'Preventivo',
+    ddt:               'DDT',
+    nota_credito:      'Nota credito',
+    vendita_banco:     'Vendita Banco',
+    buono:             'Buono',
+    fattura_differita: 'Fattura Differita',
+  }
+  const tipoBadge: Record<string, string> = {
+    fattura:           'badge-blue',
+    preventivo:        'badge-gray',
+    ddt:               'badge-green',
+    nota_credito:      'badge-red',
+    vendita_banco:     'badge-purple',
+    buono:             'badge-gray',
+    fattura_differita: 'badge-indigo',
   }
 
   // Filtro stato
   const statiFilter = ['tutti', 'bozza', 'confermato', 'pagato', 'annullato'] as const
   let statoAttivo: typeof statiFilter[number] = 'tutti'
+
+  // Filtro tipo
+  const tipiFilter = ['tutti', 'fattura', 'ddt', 'preventivo', 'nota_credito', 'vendita_banco', 'buono', 'fattura_differita'] as const
+  let tipoAttivo: typeof tipiFilter[number] = 'tutti'
 
   // Ordinamento
   type SortDir = 'asc' | 'desc'
@@ -38,7 +57,8 @@
   }
 
   $: filtrati = $documenti.filter(d =>
-    statoAttivo === 'tutti' || d.stato === statoAttivo
+    (statoAttivo === 'tutti' || d.stato === statoAttivo) &&
+    (tipoAttivo === 'tutti' || d.tipo_documento === tipoAttivo)
   )
 
   $: ordinati = [...filtrati].sort((a, b) => {
@@ -134,6 +154,21 @@
     {/each}
   </div>
 
+  <!-- Filtro tipo documento -->
+  <div class="flex gap-1.5 flex-wrap">
+    {#each tipiFilter as t}
+      <button
+        class="px-3 py-1 rounded-full text-xs font-medium transition-colors duration-100
+          {tipoAttivo === t
+            ? 'bg-gray-600 text-white'
+            : 'bg-gray-800/60 text-gray-500 hover:text-gray-300 hover:bg-gray-800'}"
+        on:click={() => tipoAttivo = t}
+      >
+        {t === 'tutti' ? 'Tutti i tipi' : (tipoLabel[t] ?? t)}
+      </button>
+    {/each}
+  </div>
+
   <div class="card overflow-hidden">
     <table class="w-full text-sm">
       <thead class="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wide">
@@ -164,7 +199,11 @@
       <tbody class="divide-y divide-gray-800">
         {#each ordinati as d}
           <tr class="table-row-hover">
-            <td class="px-4 py-3 text-gray-400 text-xs">{tipoLabel[d.tipo_documento]}</td>
+            <td class="px-4 py-3">
+              <span class="{tipoBadge[d.tipo_documento] ?? 'badge-gray'} text-xs">
+                {tipoLabel[d.tipo_documento] ?? d.tipo_documento}
+              </span>
+            </td>
             <td class="px-4 py-3 font-mono text-brand-400">{d.numero}</td>
             <td class="px-4 py-3 text-gray-400">{formatDate(d.data)}</td>
             <td class="px-4 py-3 text-gray-200">{nomeCliente(d.cliente_id)}</td>
@@ -188,7 +227,7 @@
                   </svg>
                   PDF
                 </button>
-                {#if d.tipo_documento === 'fattura' || d.tipo_documento === 'nota_credito'}
+                {#if d.tipo_documento === 'fattura' || d.tipo_documento === 'nota_credito' || d.tipo_documento === 'fattura_differita'}
                   <button
                     class="btn-secondary text-xs px-2 py-1 flex items-center gap-1 text-yellow-400 hover:text-yellow-300"
                     title="Genera XML FatturaPA"

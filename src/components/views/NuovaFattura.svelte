@@ -2,10 +2,11 @@
   import { onMount, createEventDispatcher } from 'svelte'
   import { clienti, ricambi, documenti, formatCurrency, setError, currentView } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { NuovaRigaDocumento } from '../../lib/types'
+  import type { NuovaRigaDocumento, TipoDocumento } from '../../lib/types'
 
   const dispatch = createEventDispatcher()
 
+  let tipoDocumento: TipoDocumento = 'fattura'
   let numero = ''
   let data = new Date().toISOString().split('T')[0]
   let clienteId: number | null = null
@@ -13,28 +14,108 @@
   let saving = false
   let touched = false
 
+  // Fattura differita — DDT selezionati
+  let ddtSelezionati: number[] = []
+  let caricandoDdt = false
+
   interface RigaUI extends NuovaRigaDocumento { _id: number }
   let righe: RigaUI[] = []
   let nextId = 0
 
-  // --- Numero fattura automatico ---
-  onMount(() => {
+  const tipiDisponibili: { value: TipoDocumento; label: string }[] = [
+    { value: 'fattura',           label: 'Fattura' },
+    { value: 'ddt',               label: 'DDT' },
+    { value: 'preventivo',        label: 'Preventivo' },
+    { value: 'nota_credito',      label: 'Nota credito' },
+    { value: 'vendita_banco',     label: 'Vendita Banco' },
+    { value: 'buono',             label: 'Buono' },
+    { value: 'fattura_differita', label: 'Fattura Differita' },
+  ]
+
+  function computeNumero(tipo: TipoDocumento): string {
     const anno = new Date().getFullYear()
-    const fattureAnno = $documenti.filter(d =>
-      d.tipo_documento === 'fattura' && d.numero.startsWith(`${anno}/`)
-    ).length
-    numero = `${anno}/${String(fattureAnno + 1).padStart(3, '0')}`
-  })
+    if (tipo === 'fattura') {
+      const n = $documenti.filter(d => d.tipo_documento === 'fattura' && d.numero.startsWith(`${anno}/`)).length
+      return `${anno}/${String(n + 1).padStart(3, '0')}`
+    }
+    const prefissi: Partial<Record<TipoDocumento, string>> = {
+      ddt:               `DDT-${anno}-`,
+      preventivo:        `PREV-${anno}-`,
+      nota_credito:      `NC-${anno}-`,
+      vendita_banco:     `VB-${anno}-`,
+      buono:             `BUO-${anno}-`,
+      fattura_differita: `FAT-${anno}-`,
+    }
+    const pref = prefissi[tipo] ?? `${anno}-`
+    const n = $documenti.filter(d => d.tipo_documento === tipo && d.numero.startsWith(pref)).length
+    return `${pref}${String(n + 1).padStart(3, '0')}`
+  }
+
+  onMount(() => { numero = computeNumero(tipoDocumento) })
+
+  function onTipoChange() {
+    numero = computeNumero(tipoDocumento)
+    ddtSelezionati = []
+    righe = []
+    // Per vendita_banco: cerca o lascia null il cliente generico
+    if (tipoDocumento === 'vendita_banco') {
+      const banco = $clienti.find(c => c.ragione_sociale === 'CLIENTE AL BANCO')
+      clienteId = banco?.id ?? null
+    }
+  }
+
+  $: ddtDisponibili = tipoDocumento === 'fattura_differita' && clienteId
+    ? $documenti.filter(d => d.tipo_documento === 'ddt' && d.fatturato === 0 && d.cliente_id === clienteId)
+    : []
+
+  async function toggleDdt(id: number) {
+    if (ddtSelezionati.includes(id)) {
+      ddtSelezionati = ddtSelezionati.filter(x => x !== id)
+    } else {
+      ddtSelezionati = [...ddtSelezionati, id]
+    }
+    await importaRigheDdt()
+  }
+
+  async function importaRigheDdt() {
+    if (ddtSelezionati.length === 0) { righe = []; return }
+    caricandoDdt = true
+    try {
+      const nuoveRighe: RigaUI[] = []
+      for (const id of ddtSelezionati) {
+        const doc = await api.documenti.get(id)
+        for (const r of doc.righe) {
+          nuoveRighe.push({
+            _id: nextId++,
+            ricambio_id: r.ricambio_id,
+            descrizione: r.descrizione,
+            quantita: r.quantita,
+            prezzo_unitario: r.prezzo_unitario,
+            sconto_percentuale: r.sconto_percentuale,
+            iva_percentuale: r.iva_percentuale,
+            ordine: nuoveRighe.length,
+          })
+        }
+      }
+      righe = nuoveRighe
+    } catch (e: any) {
+      setError(e?.message ?? 'Errore caricamento righe DDT')
+    } finally {
+      caricandoDdt = false
+    }
+  }
 
   // --- Validazione reattiva ---
   $: errNumero  = touched && !numero.trim() ? 'Numero obbligatorio' : ''
-  $: errCliente = touched && !clienteId ? 'Seleziona un cliente' : ''
+  $: errCliente = touched && tipoDocumento !== 'preventivo' && tipoDocumento !== 'buono' && !clienteId
+    ? 'Seleziona un cliente'
+    : ''
   $: errRighe   = touched
     ? righe.reduce((acc, r) => {
         const e: { descrizione?: string; quantita?: string; prezzo?: string } = {}
         if (!r.descrizione.trim()) e.descrizione = 'Descrizione obbligatoria'
         if (r.quantita <= 0)       e.quantita    = 'Deve essere > 0'
-        if (r.prezzo_unitario <= 0) e.prezzo     = 'Deve essere > 0'
+        if (r.prezzo_unitario < 0) e.prezzo      = 'Non può essere negativo'
         if (Object.keys(e).length) acc[r._id] = e
         return acc
       }, {} as Record<number, { descrizione?: string; quantita?: string; prezzo?: string }>)
@@ -62,7 +143,7 @@
     } else {
       const r = $ricambi.find(x => x.id === riga.ricambio_id)
       if (r) {
-        riga.descrizione    = r.descrizione
+        riga.descrizione     = r.descrizione
         riga.prezzo_unitario = r.prezzo_vendita
         riga.iva_percentuale = r.iva_percentuale
       }
@@ -81,16 +162,21 @@
 
   async function salva() {
     touched = true
-    // Aspetta un tick perché le reactive declarations si aggiornino
     await new Promise(r => setTimeout(r, 0))
     if (righe.length === 0) { setError('Aggiungi almeno una riga'); return }
     if (hasErrors) return
     saving = true
     try {
       const result = await api.documenti.create({
-        tipo_documento: 'fattura', numero, data,
-        cliente_id: clienteId, note: note || null,
-        righe: righe.map(({ _id, ...r }) => r)
+        tipo_documento: tipoDocumento,
+        numero,
+        data,
+        cliente_id: clienteId,
+        note: note || null,
+        ddt_collegati: tipoDocumento === 'fattura_differita' && ddtSelezionati.length > 0
+          ? ddtSelezionati
+          : null,
+        righe: righe.map(({ _id, ...r }) => r),
       })
       documenti.update(list => [result.documento, ...list])
       dispatch('refresh')
@@ -105,8 +191,26 @@
 
 <div class="p-6 space-y-5 max-w-5xl">
   <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold text-white">Nuova fattura</h1>
+    <h1 class="text-xl font-semibold text-white">Nuovo documento</h1>
     <button class="btn-secondary" on:click={() => currentView.set('documenti')}>← Torna</button>
+  </div>
+
+  <!-- Tipo documento -->
+  <div class="card p-4">
+    <label class="label mb-2 block">Tipo documento</label>
+    <div class="flex flex-wrap gap-2">
+      {#each tipiDisponibili as t}
+        <button
+          class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
+            {tipoDocumento === t.value
+              ? 'bg-brand-600 border-brand-500 text-white'
+              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500'}"
+          on:click={() => { tipoDocumento = t.value; onTipoChange() }}
+        >
+          {t.label}
+        </button>
+      {/each}
+    </div>
   </div>
 
   <!-- Testata -->
@@ -118,7 +222,6 @@
         <input
           class="input {errNumero ? 'border-red-500 focus:ring-red-500' : ''}"
           bind:value={numero}
-          placeholder="2026/001"
         />
         {#if errNumero}<p class="text-xs text-red-400 mt-1">{errNumero}</p>{/if}
       </div>
@@ -131,15 +234,26 @@
 
       <!-- Cliente -->
       <div class="col-span-2">
-        <label class="label">Cliente *</label>
-        <select
-          class="input {errCliente ? 'border-red-500 focus:ring-red-500' : ''}"
-          bind:value={clienteId}
-        >
-          <option value={null}>— Seleziona cliente —</option>
-          {#each $clienti as c}<option value={c.id}>{c.ragione_sociale}</option>{/each}
-        </select>
-        {#if errCliente}<p class="text-xs text-red-400 mt-1">{errCliente}</p>{/if}
+        <label class="label">
+          Cliente
+          {#if tipoDocumento !== 'preventivo' && tipoDocumento !== 'buono'}*{/if}
+        </label>
+        {#if tipoDocumento === 'vendita_banco'}
+          <input
+            class="input bg-gray-900 text-gray-500 cursor-not-allowed"
+            value="CLIENTE AL BANCO"
+            disabled
+          />
+        {:else}
+          <select
+            class="input {errCliente ? 'border-red-500 focus:ring-red-500' : ''}"
+            bind:value={clienteId}
+          >
+            <option value={null}>— Seleziona cliente —</option>
+            {#each $clienti as c}<option value={c.id}>{c.ragione_sociale}</option>{/each}
+          </select>
+          {#if errCliente}<p class="text-xs text-red-400 mt-1">{errCliente}</p>{/if}
+        {/if}
       </div>
     </div>
 
@@ -149,11 +263,44 @@
     </div>
   </div>
 
+  <!-- Selettore DDT per Fattura Differita -->
+  {#if tipoDocumento === 'fattura_differita'}
+    <div class="card p-5 space-y-3">
+      <h2 class="text-sm font-semibold text-white">DDT da fatturare</h2>
+      {#if !clienteId}
+        <p class="text-xs text-gray-500">Seleziona prima un cliente per vedere i DDT disponibili.</p>
+      {:else if ddtDisponibili.length === 0}
+        <p class="text-xs text-gray-500">Nessun DDT non fatturato per questo cliente.</p>
+      {:else}
+        <div class="space-y-2">
+          {#each ddtDisponibili as ddt}
+            <label class="flex items-center gap-3 p-2 rounded-lg bg-gray-800/50 hover:bg-gray-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ddtSelezionati.includes(ddt.id)}
+                on:change={() => toggleDdt(ddt.id)}
+                class="rounded border-gray-600"
+              />
+              <span class="font-mono text-brand-400 text-xs">{ddt.numero}</span>
+              <span class="text-gray-400 text-xs">{ddt.data}</span>
+              <span class="text-green-400 text-xs ml-auto">{formatCurrency(ddt.totale_documento)}</span>
+            </label>
+          {/each}
+        </div>
+        {#if caricandoDdt}
+          <p class="text-xs text-gray-500">Caricamento righe DDT…</p>
+        {/if}
+      {/if}
+    </div>
+  {/if}
+
   <!-- Righe documento -->
   <div class="card overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-white">Righe documento</h2>
-      <button class="btn-secondary text-xs" on:click={addRiga}>+ Aggiungi riga</button>
+      {#if tipoDocumento !== 'fattura_differita'}
+        <button class="btn-secondary text-xs" on:click={addRiga}>+ Aggiungi riga</button>
+      {/if}
     </div>
 
     {#if righe.length === 0}
@@ -163,7 +310,13 @@
             d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         <p class="text-sm {touched ? 'text-red-400' : ''}">
-          {touched ? 'Aggiungi almeno una riga' : 'Nessuna riga — clicca "+ Aggiungi riga"'}
+          {#if touched}
+            Aggiungi almeno una riga
+          {:else if tipoDocumento === 'fattura_differita'}
+            Seleziona uno o più DDT qui sopra per importare le righe
+          {:else}
+            Nessuna riga — clicca "+ Aggiungi riga"
+          {/if}
         </p>
       </div>
     {:else}
@@ -178,6 +331,7 @@
                 class="input text-xs"
                 bind:value={riga.ricambio_id}
                 on:change={() => onRicambioChange(riga)}
+                disabled={tipoDocumento === 'fattura_differita'}
               >
                 <option value={null}>— Descrizione libera —</option>
                 {#each $ricambi as r}
@@ -192,6 +346,7 @@
                 class="input text-xs {re.descrizione ? 'border-red-500' : ''}"
                 bind:value={riga.descrizione}
                 placeholder="Descrizione..."
+                readonly={tipoDocumento === 'fattura_differita'}
               />
               {#if re.descrizione}<p class="text-xs text-red-400 mt-0.5">{re.descrizione}</p>{/if}
             </div>
@@ -202,6 +357,7 @@
                 class="input text-xs {re.quantita ? 'border-red-500' : ''}"
                 type="number" min="0.01" step="0.01"
                 bind:value={riga.quantita}
+                readonly={tipoDocumento === 'fattura_differita'}
               />
               {#if re.quantita}<p class="text-xs text-red-400 mt-0.5">{re.quantita}</p>{/if}
             </div>
@@ -212,29 +368,38 @@
                 class="input text-xs {re.prezzo ? 'border-red-500' : ''}"
                 type="number" min="0" step="0.01"
                 bind:value={riga.prezzo_unitario}
+                readonly={tipoDocumento === 'fattura_differita'}
               />
               {#if re.prezzo}<p class="text-xs text-red-400 mt-0.5">{re.prezzo}</p>{/if}
             </div>
             <!-- Sconto -->
             <div class="col-span-1">
               <label class="label">Sc. %</label>
-              <input class="input text-xs" type="number" min="0" max="100" bind:value={riga.sconto_percentuale}/>
+              <input class="input text-xs" type="number" min="0" max="100"
+                bind:value={riga.sconto_percentuale}
+                readonly={tipoDocumento === 'fattura_differita'}
+              />
             </div>
             <!-- IVA -->
             <div class="col-span-1">
               <label class="label">IVA %</label>
-              <input class="input text-xs" type="number" min="0" bind:value={riga.iva_percentuale}/>
+              <input class="input text-xs" type="number" min="0"
+                bind:value={riga.iva_percentuale}
+                readonly={tipoDocumento === 'fattura_differita'}
+              />
             </div>
             <!-- Totale + rimuovi -->
             <div class="col-span-1 flex flex-col items-end gap-1 pt-5">
               <p class="text-sm font-medium text-green-400">
                 {formatCurrency(imponibileRiga(riga) * (1 + riga.iva_percentuale / 100))}
               </p>
-              <button
-                class="text-red-400 hover:text-red-300 text-xs leading-none"
-                on:click={() => removeRiga(riga._id)}
-                title="Rimuovi riga"
-              >✕</button>
+              {#if tipoDocumento !== 'fattura_differita'}
+                <button
+                  class="text-red-400 hover:text-red-300 text-xs leading-none"
+                  on:click={() => removeRiga(riga._id)}
+                  title="Rimuovi riga"
+                >✕</button>
+              {/if}
             </div>
           </div>
         {/each}
@@ -242,12 +407,14 @@
 
       <!-- Totali -->
       <div class="px-4 py-3 border-t border-gray-800 bg-gray-800/30 flex justify-end gap-6 text-sm">
-        <span class="text-gray-400">
-          Imponibile: <span class="text-white font-medium">{formatCurrency(totaleImponibile)}</span>
-        </span>
-        <span class="text-gray-400">
-          IVA: <span class="text-white font-medium">{formatCurrency(totaleIva)}</span>
-        </span>
+        {#if tipoDocumento !== 'buono' && tipoDocumento !== 'vendita_banco'}
+          <span class="text-gray-400">
+            Imponibile: <span class="text-white font-medium">{formatCurrency(totaleImponibile)}</span>
+          </span>
+          <span class="text-gray-400">
+            IVA: <span class="text-white font-medium">{formatCurrency(totaleIva)}</span>
+          </span>
+        {/if}
         <span class="text-gray-300 font-semibold">
           Totale: <span class="text-green-400 text-base font-bold">{formatCurrency(totaleDoc)}</span>
         </span>
@@ -255,10 +422,21 @@
     {/if}
   </div>
 
+  <!-- Nota informativa per tipi non fiscali -->
+  {#if tipoDocumento === 'buono'}
+    <p class="text-xs text-gray-500 px-1">
+      Il Buono è un documento interno senza valore fiscale. Non genera scadenzario.
+    </p>
+  {:else if tipoDocumento === 'vendita_banco'}
+    <p class="text-xs text-gray-500 px-1">
+      Vendita Banco: documento fiscale immediato, nessuno scadenzario generato.
+    </p>
+  {/if}
+
   <!-- Azioni -->
   <div class="flex gap-2 items-center">
     <button class="btn-primary" on:click={salva} disabled={saving}>
-      {saving ? 'Salvataggio...' : 'Salva fattura'}
+      {saving ? 'Salvataggio...' : 'Salva documento'}
     </button>
     <button class="btn-secondary" on:click={() => currentView.set('documenti')}>Annulla</button>
     {#if touched && hasErrors}

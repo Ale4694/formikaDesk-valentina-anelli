@@ -126,6 +126,9 @@ pub struct Documento {
     pub metodo_pagamento: Option<String>,
     pub riferimento_pagamento: Option<String>,
     pub note_pagamento: Option<String>,
+    pub ddt_collegati: Option<String>,
+    pub is_fattura_differita: i64,
+    pub fatturato: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -137,6 +140,7 @@ pub struct NuovoDocumento {
     pub fornitore_id: Option<i64>,
     pub note: Option<String>,
     pub giorni_pagamento: Option<i64>,
+    pub ddt_collegati: Option<Vec<i64>>,
     pub righe: Vec<NuovaRigaDocumento>,
 }
 

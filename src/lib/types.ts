@@ -97,9 +97,13 @@ export interface NuovoRicambio {
   note?: string | null
 }
 
+export type TipoDocumento =
+  | 'fattura' | 'preventivo' | 'ddt' | 'nota_credito'
+  | 'vendita_banco' | 'buono' | 'fattura_differita'
+
 export interface Documento {
   id: number
-  tipo_documento: 'fattura' | 'preventivo' | 'ddt' | 'nota_credito'
+  tipo_documento: TipoDocumento
   numero: string
   data: string
   cliente_id: number | null
@@ -117,6 +121,9 @@ export interface Documento {
   metodo_pagamento: string | null
   riferimento_pagamento: string | null
   note_pagamento: string | null
+  ddt_collegati: string | null
+  is_fattura_differita: number
+  fatturato: number
 }
 
 export interface RigaDocumento {
@@ -152,6 +159,7 @@ export interface NuovoDocumento {
   fornitore_id?: number | null
   note?: string | null
   giorni_pagamento?: number | null
+  ddt_collegati?: number[] | null
   righe: NuovaRigaDocumento[]
 }
 
