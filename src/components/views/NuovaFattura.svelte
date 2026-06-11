@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte'
-  import { clienti, ricambi, documenti, formatCurrency, setError, currentView } from '../../lib/stores'
+  import { clienti, documenti, formatCurrency, setError, currentView } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { NuovaRigaDocumento, TipoDocumento } from '../../lib/types'
+  import type { NuovaRigaDocumento, TipoDocumento, Ricambio } from '../../lib/types'
 
   const dispatch = createEventDispatcher()
 
@@ -21,6 +21,49 @@
   interface RigaUI extends NuovaRigaDocumento { _id: number }
   let righe: RigaUI[] = []
   let nextId = 0
+
+  // Typeahead per selezione articolo per riga
+  interface TAState { query: string; results: Ricambio[]; open: boolean }
+  let righeTA: Record<number, TAState> = {}
+  let taTimers: Record<number, ReturnType<typeof setTimeout>> = {}
+
+  function getTa(id: number): TAState {
+    return righeTA[id] ?? { query: '', results: [], open: false }
+  }
+
+  function setTa(id: number, patch: Partial<TAState>) {
+    righeTA = { ...righeTA, [id]: { ...getTa(id), ...patch } }
+  }
+
+  async function onTaInput(riga: RigaUI, value: string) {
+    setTa(riga._id, { query: value, open: !!value.trim() })
+    clearTimeout(taTimers[riga._id])
+    if (!value.trim()) { setTa(riga._id, { results: [] }); return }
+    taTimers[riga._id] = setTimeout(async () => {
+      try {
+        const results = (await api.ricambi.search(value)).slice(0, 10)
+        setTa(riga._id, { results, open: true })
+      } catch {}
+    }, 300)
+  }
+
+  function selectTa(riga: RigaUI, r: Ricambio) {
+    riga.ricambio_id = r.id
+    riga.descrizione = r.descrizione
+    riga.prezzo_unitario = r.prezzo_vendita
+    riga.iva_percentuale = r.iva_percentuale
+    righe = [...righe]
+    setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [] })
+  }
+
+  function clearTa(riga: RigaUI) {
+    riga.ricambio_id = null
+    riga.descrizione = ''
+    riga.prezzo_unitario = 0
+    riga.iva_percentuale = 22
+    righe = [...righe]
+    setTa(riga._id, { query: '', results: [], open: false })
+  }
 
   const tipiDisponibili: { value: TipoDocumento; label: string }[] = [
     { value: 'fattura',           label: 'Fattura' },
@@ -124,31 +167,19 @@
   $: hasErrors = !!errNumero || !!errCliente || Object.keys(errRighe).length > 0 || (touched && righe.length === 0)
 
   function addRiga() {
+    const id = nextId++
+    righeTA = { ...righeTA, [id]: { query: '', results: [], open: false } }
     righe = [...righe, {
-      _id: nextId++, ricambio_id: null, descrizione: '',
+      _id: id, ricambio_id: null, descrizione: '',
       quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0,
       iva_percentuale: 22, ordine: righe.length
     }]
   }
 
   function removeRiga(id: number) {
+    const { [id]: _, ...rest } = righeTA
+    righeTA = rest
     righe = righe.filter(r => r._id !== id).map((r, i) => ({ ...r, ordine: i }))
-  }
-
-  function onRicambioChange(riga: RigaUI) {
-    if (!riga.ricambio_id) {
-      riga.descrizione = ''
-      riga.prezzo_unitario = 0
-      riga.iva_percentuale = 22
-    } else {
-      const r = $ricambi.find(x => x.id === riga.ricambio_id)
-      if (r) {
-        riga.descrizione     = r.descrizione
-        riga.prezzo_unitario = r.prezzo_vendita
-        riga.iva_percentuale = r.iva_percentuale
-      }
-    }
-    righe = [...righe]
   }
 
   function imponibileRiga(r: RigaUI) {
@@ -324,20 +355,43 @@
         {#each righe as riga (riga._id)}
           {@const re = errRighe[riga._id] ?? {}}
           <div class="p-4 grid grid-cols-12 gap-2 items-start">
-            <!-- Ricambio -->
+            <!-- Ricambio typeahead -->
             <div class="col-span-3">
               <label class="label">Ricambio</label>
-              <select
-                class="input text-xs"
-                bind:value={riga.ricambio_id}
-                on:change={() => onRicambioChange(riga)}
-                disabled={tipoDocumento === 'fattura_differita'}
-              >
-                <option value={null}>— Descrizione libera —</option>
-                {#each $ricambi as r}
-                  <option value={r.id}>{r.codice_interno} — {r.descrizione}</option>
-                {/each}
-              </select>
+              {#if tipoDocumento !== 'fattura_differita'}
+                <div class="relative">
+                  <input
+                    class="input text-xs pr-6"
+                    placeholder="Cerca codice o descrizione..."
+                    value={getTa(riga._id).query}
+                    on:input={e => onTaInput(riga, (e.target as HTMLInputElement).value)}
+                    on:keydown={e => { if (e.key === 'Escape') setTa(riga._id, { open: false }) }}
+                    on:blur={() => setTimeout(() => setTa(riga._id, { open: false }), 150)}
+                  />
+                  {#if getTa(riga._id).query}
+                    <button
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 leading-none px-0.5"
+                      tabindex="-1"
+                      on:mousedown|preventDefault={() => clearTa(riga)}
+                    >✕</button>
+                  {/if}
+                  {#if getTa(riga._id).open && getTa(riga._id).results.length > 0}
+                    <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {#each getTa(riga._id).results as r (r.id)}
+                        <button
+                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex flex-col gap-0.5"
+                          on:mousedown|preventDefault={() => selectTa(riga, r)}
+                        >
+                          <span class="font-mono text-brand-400 text-xs">{r.codice_interno}</span>
+                          <span class="text-gray-300 text-xs truncate">{r.descrizione}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {:else}
+                <input class="input text-xs bg-gray-900 text-gray-500" value={getTa(riga._id).query || riga.descrizione} disabled />
+              {/if}
             </div>
             <!-- Descrizione -->
             <div class="col-span-3">
