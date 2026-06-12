@@ -380,3 +380,13 @@ pub struct ScadenzaDocumento {
     pub cliente_id: Option<i64>,
     pub cliente_ragione_sociale: Option<String>,
 }
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ArticoloStorico {
+    pub ricambio_id: i64,
+    pub codice_interno: String,
+    pub descrizione: String,
+    pub prezzo_unitario: f64,
+    pub quantita_totale: f64,
+    pub frequenza: i64,
+}

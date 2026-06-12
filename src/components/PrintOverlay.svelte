@@ -169,7 +169,7 @@
   :global(#print-overlay) .inv-company-name {
     font-size: 18pt;
     font-weight: 700;
-    color: #1a3a6b;
+    color: #B91C1C;
   }
 
   :global(#print-overlay) .inv-company-sub {
@@ -194,7 +194,7 @@
   :global(#print-overlay) .inv-tipo {
     font-size: 14pt;
     font-weight: 700;
-    color: #1a3a6b;
+    color: #B91C1C;
     margin-bottom: 1mm;
   }
 
@@ -207,7 +207,7 @@
 
   :global(#print-overlay) .inv-divider {
     border: none;
-    border-top: 1.5pt solid #1a3a6b;
+    border-top: 1.5pt solid #B91C1C;
     margin: 4mm 0;
   }
 
@@ -238,7 +238,7 @@
   }
 
   :global(#print-overlay) .inv-th {
-    background: #1a3a6b;
+    background: #B91C1C;
     color: #fff;
     padding: 2mm 3mm;
     font-size: 9pt;
@@ -249,7 +249,7 @@
   :global(#print-overlay) .inv-th-right { text-align: right; }
 
   :global(#print-overlay) .inv-tr:nth-child(even) td {
-    background: #f4f7fb;
+    background: #fef2f2;
   }
 
   :global(#print-overlay) .inv-td {
@@ -272,9 +272,9 @@
 
   :global(#print-overlay) .inv-tfoot-total td {
     padding: 2mm 3mm;
-    border-top: 1.5pt solid #1a3a6b;
-    border-bottom: 1.5pt solid #1a3a6b;
-    background: #f0f4ff;
+    border-top: 1.5pt solid #B91C1C;
+    border-bottom: 1.5pt solid #B91C1C;
+    background: #fef2f2;
   }
 
   :global(#print-overlay) .inv-tfoot-total-label {
@@ -287,7 +287,7 @@
     text-align: right;
     font-weight: 700;
     font-size: 13pt;
-    color: #1a3a6b;
+    color: #B91C1C;
   }
 
   :global(#print-overlay) .inv-pag {
@@ -325,8 +325,8 @@
   :global(#print-overlay) .inv-note {
     margin-top: 5mm;
     padding: 2mm 3mm;
-    border-left: 2pt solid #1a3a6b;
-    background: #f4f7fb;
+    border-left: 2pt solid #B91C1C;
+    background: #fef2f2;
     font-size: 9.5pt;
   }
 
@@ -350,7 +350,7 @@
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     font-weight: 700;
-    color: #1a3a6b;
+    color: #B91C1C;
     background: #fff;
     border-bottom: 0.5pt solid #d0d8e8;
   }

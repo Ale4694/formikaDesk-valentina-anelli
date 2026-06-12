@@ -417,3 +417,12 @@ export interface AppConfig {
   moduli: string[]
   vocabolario: Record<string, string>
 }
+
+export interface ArticoloStorico {
+  ricambio_id: number
+  codice_interno: string
+  descrizione: string
+  prezzo_unitario: number
+  quantita_totale: number
+  frequenza: number
+}

@@ -2,7 +2,7 @@
   import { onMount, createEventDispatcher } from 'svelte'
   import { clienti, documenti, formatCurrency, setError, currentView } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { NuovaRigaDocumento, TipoDocumento, Ricambio } from '../../lib/types'
+  import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico } from '../../lib/types'
 
   const dispatch = createEventDispatcher()
 
@@ -26,6 +26,8 @@
   interface TAState { query: string; results: Ricambio[]; open: boolean }
   let righeTA: Record<number, TAState> = {}
   let taTimers: Record<number, ReturnType<typeof setTimeout>> = {}
+  let righeDescTA: Record<number, TAState> = {}
+  let descTaTimers: Record<number, ReturnType<typeof setTimeout>> = {}
 
   function getTa(id: number): TAState {
     return righeTA[id] ?? { query: '', results: [], open: false }
@@ -33,6 +35,14 @@
 
   function setTa(id: number, patch: Partial<TAState>) {
     righeTA = { ...righeTA, [id]: { ...getTa(id), ...patch } }
+  }
+
+  function getDescTa(id: number): TAState {
+    return righeDescTA[id] ?? { query: '', results: [], open: false }
+  }
+
+  function setDescTa(id: number, patch: Partial<TAState>) {
+    righeDescTA = { ...righeDescTA, [id]: { ...getDescTa(id), ...patch } }
   }
 
   async function onTaInput(riga: RigaUI, value: string) {
@@ -47,12 +57,37 @@
     }, 300)
   }
 
+  async function onDescTaInput(riga: RigaUI, value: string) {
+    setDescTa(riga._id, { query: value, open: !!value.trim() })
+    riga.descrizione = value
+    righe = [...righe]
+    clearTimeout(descTaTimers[riga._id])
+    if (!value.trim()) { setDescTa(riga._id, { results: [] }); return }
+    descTaTimers[riga._id] = setTimeout(async () => {
+      try {
+        const results = (await api.ricambi.search(value)).slice(0, 10)
+        setDescTa(riga._id, { results, open: true })
+      } catch {}
+    }, 300)
+  }
+
   function selectTa(riga: RigaUI, r: Ricambio) {
     riga.ricambio_id = r.id
     riga.descrizione = r.descrizione
     riga.prezzo_unitario = r.prezzo_vendita
     riga.iva_percentuale = r.iva_percentuale
     righe = [...righe]
+    setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [] })
+    setDescTa(riga._id, { query: r.descrizione, open: false, results: [] })
+  }
+
+  function selectDescTa(riga: RigaUI, r: Ricambio) {
+    riga.ricambio_id = r.id
+    riga.descrizione = r.descrizione
+    riga.prezzo_unitario = r.prezzo_vendita
+    riga.iva_percentuale = r.iva_percentuale
+    righe = [...righe]
+    setDescTa(riga._id, { query: r.descrizione, open: false, results: [] })
     setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [] })
   }
 
@@ -63,6 +98,56 @@
     riga.iva_percentuale = 22
     righe = [...righe]
     setTa(riga._id, { query: '', results: [], open: false })
+    setDescTa(riga._id, { query: '', results: [], open: false })
+  }
+
+  function clearDescTa(riga: RigaUI) {
+    riga.ricambio_id = null
+    riga.descrizione = ''
+    riga.prezzo_unitario = 0
+    riga.iva_percentuale = 22
+    righe = [...righe]
+    setDescTa(riga._id, { query: '', results: [], open: false })
+    setTa(riga._id, { query: '', results: [], open: false })
+  }
+
+  // Storico acquisti cliente
+  let storicoCliente: ArticoloStorico[] = []
+  let loadingStorico = false
+
+  $: {
+    if (clienteId && tipoDocumento !== 'fattura_differita') {
+      caricaStorico(clienteId)
+    } else {
+      storicoCliente = []
+    }
+  }
+
+  async function caricaStorico(id: number) {
+    loadingStorico = true
+    try {
+      storicoCliente = await api.documenti.getStoricoCliente(id)
+    } catch {
+      storicoCliente = []
+    } finally {
+      loadingStorico = false
+    }
+  }
+
+  function aggiungiDaStorico(art: ArticoloStorico) {
+    const id = nextId++
+    righeTA = { ...righeTA, [id]: { query: `${art.codice_interno} — ${art.descrizione}`, results: [], open: false } }
+    righeDescTA = { ...righeDescTA, [id]: { query: art.descrizione, results: [], open: false } }
+    righe = [...righe, {
+      _id: id,
+      ricambio_id: art.ricambio_id,
+      descrizione: art.descrizione,
+      quantita: 1,
+      prezzo_unitario: art.prezzo_unitario,
+      sconto_percentuale: 0,
+      iva_percentuale: 22,
+      ordine: righe.length,
+    }]
   }
 
   const tipiDisponibili: { value: TipoDocumento; label: string }[] = [
@@ -169,6 +254,7 @@
   function addRiga() {
     const id = nextId++
     righeTA = { ...righeTA, [id]: { query: '', results: [], open: false } }
+    righeDescTA = { ...righeDescTA, [id]: { query: '', results: [], open: false } }
     righe = [...righe, {
       _id: id, ricambio_id: null, descrizione: '',
       quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0,
@@ -179,6 +265,8 @@
   function removeRiga(id: number) {
     const { [id]: _, ...rest } = righeTA
     righeTA = rest
+    const { [id]: _d, ...restD } = righeDescTA
+    righeDescTA = restD
     righe = righe.filter(r => r._id !== id).map((r, i) => ({ ...r, ordine: i }))
   }
 
@@ -393,15 +481,43 @@
                 <input class="input text-xs bg-gray-900 text-gray-500" value={getTa(riga._id).query || riga.descrizione} disabled />
               {/if}
             </div>
-            <!-- Descrizione -->
+            <!-- Descrizione typeahead -->
             <div class="col-span-3">
               <label class="label">Descrizione</label>
-              <input
-                class="input text-xs {re.descrizione ? 'border-red-500' : ''}"
-                bind:value={riga.descrizione}
-                placeholder="Descrizione..."
-                readonly={tipoDocumento === 'fattura_differita'}
-              />
+              {#if tipoDocumento !== 'fattura_differita'}
+                <div class="relative">
+                  <input
+                    class="input text-xs pr-6 {re.descrizione ? 'border-red-500' : ''}"
+                    placeholder="Cerca descrizione..."
+                    value={getDescTa(riga._id).query}
+                    on:input={e => onDescTaInput(riga, (e.target as HTMLInputElement).value)}
+                    on:keydown={e => { if (e.key === 'Escape') setDescTa(riga._id, { open: false }) }}
+                    on:blur={() => setTimeout(() => setDescTa(riga._id, { open: false }), 150)}
+                  />
+                  {#if getDescTa(riga._id).query}
+                    <button
+                      class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 leading-none px-0.5"
+                      tabindex="-1"
+                      on:mousedown|preventDefault={() => clearDescTa(riga)}
+                    >✕</button>
+                  {/if}
+                  {#if getDescTa(riga._id).open && getDescTa(riga._id).results.length > 0}
+                    <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {#each getDescTa(riga._id).results as r (r.id)}
+                        <button
+                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex flex-col gap-0.5"
+                          on:mousedown|preventDefault={() => selectDescTa(riga, r)}
+                        >
+                          <span class="text-gray-300 text-xs truncate">{r.descrizione}</span>
+                          <span class="font-mono text-brand-400 text-xs">{r.codice_interno}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {:else}
+                <input class="input text-xs bg-gray-900 text-gray-500" value={riga.descrizione} disabled />
+              {/if}
               {#if re.descrizione}<p class="text-xs text-red-400 mt-0.5">{re.descrizione}</p>{/if}
             </div>
             <!-- Quantità -->
@@ -475,6 +591,31 @@
       </div>
     {/if}
   </div>
+
+  <!-- Storico acquisti cliente -->
+  {#if storicoCliente.length > 0 && tipoDocumento !== 'fattura_differita'}
+    <div class="card p-4 space-y-2">
+      <h2 class="text-sm font-semibold text-white">Acquisti precedenti di questo cliente</h2>
+      <div class="divide-y divide-gray-800">
+        {#each storicoCliente as art}
+          <div class="py-2 flex items-center gap-3">
+            <div class="flex-1 min-w-0">
+              <span class="font-mono text-brand-400 text-xs">{art.codice_interno}</span>
+              <span class="text-gray-300 text-xs ml-2 truncate">{art.descrizione}</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+              <span title="Volte acquistato">×{art.frequenza}</span>
+              <span>{formatCurrency(art.prezzo_unitario)}</span>
+            </div>
+            <button
+              class="btn-secondary text-xs shrink-0"
+              on:click={() => aggiungiDaStorico(art)}
+            >+ Aggiungi</button>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
 
   <!-- Nota informativa per tipi non fiscali -->
   {#if tipoDocumento === 'buono'}

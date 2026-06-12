@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::{Documento, DocumentoCompleto, NuovoDocumento, PaginatedResult, RigaDocumento};
+use crate::models::{ArticoloStorico, Documento, DocumentoCompleto, NuovoDocumento, PaginatedResult, RigaDocumento};
 use chrono::NaiveDate;
 use tauri::State;
 
@@ -271,4 +271,34 @@ pub async fn update_stato_documento(
         .fetch_one(&state.db)
         .await?;
     Ok(doc)
+}
+
+#[tauri::command]
+pub async fn get_storico_articoli_cliente(
+    cliente_id: i64,
+    state: State<'_, AppState>,
+) -> Result<Vec<ArticoloStorico>, AppError> {
+    let rows = sqlx::query_as::<_, ArticoloStorico>(
+        "SELECT r.id as ricambio_id, r.codice_interno, r.descrizione,
+                COALESCE((
+                    SELECT rd2.prezzo_unitario FROM righe_documento rd2
+                    JOIN documenti d2 ON d2.id = rd2.documento_id
+                    WHERE rd2.ricambio_id = r.id AND d2.cliente_id = ?
+                    ORDER BY d2.data DESC, d2.id DESC LIMIT 1
+                ), 0.0) as prezzo_unitario,
+                CAST(SUM(rd.quantita) AS REAL) as quantita_totale,
+                COUNT(*) as frequenza
+         FROM righe_documento rd
+         JOIN documenti d ON d.id = rd.documento_id
+         JOIN ricambi r ON r.id = rd.ricambio_id
+         WHERE d.cliente_id = ? AND rd.ricambio_id IS NOT NULL
+         GROUP BY r.id, r.codice_interno, r.descrizione
+         ORDER BY frequenza DESC, MAX(d.data) DESC
+         LIMIT 20",
+    )
+    .bind(cliente_id)
+    .bind(cliente_id)
+    .fetch_all(&state.db)
+    .await?;
+    Ok(rows)
 }

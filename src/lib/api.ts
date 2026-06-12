@@ -10,7 +10,7 @@ import type {
   ReportMensile, ScadenzaDocumento,
   ScontrinoCompleto, NuovoScontrino,
   Impostazioni, LicenseInfo, AppConfig, ConfigIntestazione,
-  PaginatedResult,
+  PaginatedResult, ArticoloStorico,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -68,6 +68,8 @@ export const api = {
       }
     ) => call<Documento>('update_stato_documento', { id, stato, ...pagamento }),
     getScadenzario: () => call<ScadenzaDocumento[]>('get_scadenzario'),
+    getStoricoCliente: (clienteId: number) =>
+      call<ArticoloStorico[]>('get_storico_articoli_cliente', { clienteId }),
   },
   ricerca: {
     searchGlobal: (query: string) => call<RisultatoRicerca[]>('search_global', { query }),
