@@ -485,7 +485,7 @@
   {/if}
 
   <!-- Righe documento -->
-  <div class="card overflow-hidden">
+  <div class="card">
     <div class="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-white">Righe documento</h2>
       {#if tipoDocumento !== 'fattura_differita'}
@@ -535,10 +535,10 @@
                     >✕</button>
                   {/if}
                   {#if getTa(riga._id).open && (getTa(riga._id).storicoHits.length > 0 || getTa(riga._id).results.length > 0)}
-                    <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-80 overflow-y-auto">
                       {#each getTa(riga._id).storicoHits as art (art.ricambio_id)}
                         <button
-                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-1.5"
+                          class="w-full text-left px-3 py-2.5 hover:bg-gray-700 flex items-center gap-1.5"
                           on:mousedown|preventDefault={() => selectTaFromStorico(riga, art)}
                         >
                           <span class="text-yellow-400 text-xs shrink-0">★</span>
@@ -552,7 +552,7 @@
                       {/if}
                       {#each getTa(riga._id).results as r (r.id)}
                         <button
-                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex flex-col gap-0.5"
+                          class="w-full text-left px-3 py-2.5 hover:bg-gray-700 flex flex-col gap-0.5"
                           on:mousedown|preventDefault={() => selectTa(riga, r)}
                         >
                           <span class="font-mono text-brand-400 text-xs">{r.codice_interno}</span>
@@ -587,10 +587,10 @@
                     >✕</button>
                   {/if}
                   {#if getDescTa(riga._id).open && (getDescTa(riga._id).storicoHits.length > 0 || getDescTa(riga._id).results.length > 0)}
-                    <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-80 overflow-y-auto">
                       {#each getDescTa(riga._id).storicoHits as art (art.ricambio_id)}
                         <button
-                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-1.5"
+                          class="w-full text-left px-3 py-2.5 hover:bg-gray-700 flex items-center gap-1.5"
                           on:mousedown|preventDefault={() => selectDescTaFromStorico(riga, art)}
                         >
                           <span class="text-yellow-400 text-xs shrink-0">★</span>
@@ -604,7 +604,7 @@
                       {/if}
                       {#each getDescTa(riga._id).results as r (r.id)}
                         <button
-                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex flex-col gap-0.5"
+                          class="w-full text-left px-3 py-2.5 hover:bg-gray-700 flex flex-col gap-0.5"
                           on:mousedown|preventDefault={() => selectDescTa(riga, r)}
                         >
                           <span class="text-gray-300 text-xs truncate">{r.descrizione}</span>
