@@ -105,6 +105,26 @@ jobs:
           prerelease: false
           args: ${{ matrix.tauri-args }}
 
+      - name: Upload update packages and signatures to release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # tauri-action only uploads the main installers, not the updater bundles.
+          # We upload them manually so publish-latest-json can read the signatures.
+          find src-tauri/target -type f \( \
+            -name "*.AppImage.tar.gz"     -o -name "*.AppImage.tar.gz.sig" \
+            -o -name "*.app.tar.gz"       -o -name "*.app.tar.gz.sig" \
+            -o -name "*.nsis.zip"         -o -name "*.nsis.zip.sig" \
+          \) | while IFS= read -r f; do
+            name=$(basename "$f" | tr ' ' '.')
+            tmpfile="/tmp/${name}"
+            cp "$f" "$tmpfile"
+            echo "Uploading: $name"
+            gh release upload "${TAG}" "$tmpfile" --clobber
+          done
+
   publish-latest-json:
     needs: release
     runs-on: ubuntu-22.04
@@ -139,7 +159,7 @@ jobs:
 
           LINUX_SIG_FILE=$(find_sig "amd64.*appimage|appimage.*amd64")
           WIN_SIG_FILE=$(find_sig "x64-setup|nsis")
-          MAC_SIG_FILE=$(find_sig "universal|darwin|macos")
+          MAC_SIG_FILE=$(find_sig "\.app\.tar\.gz\.sig$")
 
           read_sig() {
             local f="/tmp/sigs/${1}"
