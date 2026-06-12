@@ -77,6 +77,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'AutoParts Gestionale v__VERSION__'
@@ -112,40 +114,81 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version from tauri.conf.json
-        id: version
-        run: |
-          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Generate latest.json
+      - name: Build latest.json from signed release assets
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
+          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          PRODUCT=$(jq -r '.productName' src-tauri/tauri.conf.json | tr ' ' '.')
           BASE="https://github.com/${REPO}/releases/download/${TAG}"
-          cat > latest.json <<EOF
-          {
-            "version": "${VERSION}",
-            "notes": "Vedi https://github.com/${REPO}/releases/tag/${TAG} per i dettagli.",
-            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "platforms": {
-              "linux-x86_64": {
-                "url": "${BASE}/autoparts-manager_${VERSION}_amd64.AppImage",
-                "signature": ""
-              },
-              "windows-x86_64": {
-                "url": "${BASE}/autoparts-manager_${VERSION}_x64-setup.exe",
-                "signature": ""
-              },
-              "darwin-universal": {
-                "url": "${BASE}/autoparts-manager_${VERSION}_universal.dmg",
-                "signature": ""
-              }
-            }
+
+          # Download all .sig files uploaded by tauri-action during the build
+          mkdir -p /tmp/sigs
+          gh release download "${TAG}" --repo "${REPO}" --pattern "*.sig" --dir /tmp/sigs 2>/dev/null || true
+
+          echo "Sig files found:"
+          ls /tmp/sigs/ 2>/dev/null || echo "(none — signing key may not have been set)"
+
+          # Find the .sig file matching a pattern and read its content
+          find_sig() {
+            local pattern="$1"
+            ls /tmp/sigs/ 2>/dev/null | grep -iE "$pattern" | head -1
           }
-          EOF
+
+          LINUX_SIG_FILE=$(find_sig "amd64.*appimage|appimage.*amd64")
+          WIN_SIG_FILE=$(find_sig "x64-setup|nsis")
+          MAC_SIG_FILE=$(find_sig "universal|darwin|macos")
+
+          read_sig() {
+            local f="/tmp/sigs/${1}"
+            [ -n "$1" ] && [ -f "$f" ] && cat "$f" || echo ""
+          }
+
+          # URL = BASE + package name (sig filename without the trailing .sig)
+          pkg_url() {
+            local sigfile="$1"
+            local fallback="$2"
+            if [ -n "$sigfile" ]; then
+              echo "${BASE}/${sigfile%.sig}"
+            else
+              echo "${BASE}/${fallback}"
+            fi
+          }
+
+          LINUX_SIG=$(read_sig "$LINUX_SIG_FILE")
+          LINUX_URL=$(pkg_url "$LINUX_SIG_FILE" "${PRODUCT}_${VERSION}_amd64.AppImage.tar.gz")
+
+          WIN_SIG=$(read_sig "$WIN_SIG_FILE")
+          WIN_URL=$(pkg_url "$WIN_SIG_FILE" "${PRODUCT}_${VERSION}_x64-setup.nsis.zip")
+
+          MAC_SIG=$(read_sig "$MAC_SIG_FILE")
+          MAC_URL=$(pkg_url "$MAC_SIG_FILE" "${PRODUCT}_${VERSION}_universal.app.tar.gz")
+
+          jq -n \
+            --arg version  "$VERSION" \
+            --arg notes    "Vedi https://github.com/${REPO}/releases/tag/${TAG} per i dettagli." \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg linux_url  "$LINUX_URL" \
+            --arg linux_sig  "$LINUX_SIG" \
+            --arg win_url    "$WIN_URL" \
+            --arg win_sig    "$WIN_SIG" \
+            --arg mac_url    "$MAC_URL" \
+            --arg mac_sig    "$MAC_SIG" \
+            '{
+              version:  $version,
+              notes:    $notes,
+              pub_date: $pub_date,
+              platforms: {
+                "linux-x86_64":    { url: $linux_url, signature: $linux_sig },
+                "windows-x86_64":  { url: $win_url,   signature: $win_sig   },
+                "darwin-universal": { url: $mac_url,  signature: $mac_sig   }
+              }
+            }' > latest.json
+
+          echo "Generated latest.json:"
+          cat latest.json
 
       - name: Upload latest.json to release
         env:
