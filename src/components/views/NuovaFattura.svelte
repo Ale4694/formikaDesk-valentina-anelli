@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte'
-  import { clienti, documenti, formatCurrency, setError, currentView } from '../../lib/stores'
+  import { clienti, documenti, formatCurrency, setError, currentView, editDocumentoId } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente } from '../../lib/types'
 
@@ -13,6 +13,8 @@
   let note = ''
   let saving = false
   let touched = false
+  let editMode = false
+  let editId: number | null = null
 
   // Fattura differita — DDT selezionati
   let ddtSelezionati: number[] = []
@@ -227,7 +229,47 @@
     return `${pref}${String(n + 1).padStart(3, '0')}`
   }
 
-  onMount(() => { numero = computeNumero(tipoDocumento) })
+  onMount(async () => {
+    const eid = $editDocumentoId
+    editDocumentoId.set(null)
+    if (eid !== null) {
+      editMode = true
+      editId = eid
+      try {
+        const docCompleto = await api.documenti.get(eid)
+        const d = docCompleto.documento
+        tipoDocumento = d.tipo_documento as TipoDocumento
+        numero = d.numero
+        data = d.data
+        clienteId = d.cliente_id
+        note = d.note ?? ''
+        if (d.cliente_id) {
+          const c = $clienti.find(c => c.id === d.cliente_id)
+          if (c) clienteTA = { query: c.ragione_sociale, results: [], open: false }
+        }
+        righe = docCompleto.righe.map(r => {
+          const _id = nextId++
+          righeTA = { ...righeTA, [_id]: { query: r.descrizione, results: [], storicoHits: [], open: false } }
+          righeDescTA = { ...righeDescTA, [_id]: { query: r.descrizione, results: [], storicoHits: [], open: false } }
+          return {
+            _id,
+            ricambio_id: r.ricambio_id,
+            descrizione: r.descrizione,
+            quantita: r.quantita,
+            prezzo_unitario: r.prezzo_unitario,
+            sconto_percentuale: r.sconto_percentuale,
+            iva_percentuale: r.iva_percentuale,
+            ordine: r.ordine,
+          }
+        })
+      } catch (e: any) {
+        setError(e?.message ?? 'Errore caricamento documento')
+        currentView.set('documenti')
+      }
+    } else {
+      numero = computeNumero(tipoDocumento)
+    }
+  })
 
   function onTipoChange() {
     numero = computeNumero(tipoDocumento)
@@ -334,7 +376,7 @@
     if (hasErrors) return
     saving = true
     try {
-      const result = await api.documenti.create({
+      const payload = {
         tipo_documento: tipoDocumento,
         numero,
         data,
@@ -344,8 +386,14 @@
           ? ddtSelezionati
           : null,
         righe: righe.map(({ _id, ...r }) => r),
-      })
-      documenti.update(list => [result.documento, ...list])
+      }
+      if (editMode && editId !== null) {
+        const result = await api.documenti.update(editId, payload)
+        documenti.update(list => list.map(d => d.id === result.documento.id ? result.documento : d))
+      } else {
+        const result = await api.documenti.create(payload)
+        documenti.update(list => [result.documento, ...list])
+      }
       dispatch('refresh')
       currentView.set('documenti')
     } catch (e: any) {
@@ -358,7 +406,7 @@
 
 <div class="p-6 space-y-5 max-w-5xl">
   <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold text-white">Nuovo documento</h1>
+    <h1 class="text-xl font-semibold text-white">{editMode ? 'Modifica documento' : 'Nuovo documento'}</h1>
     <button class="btn-secondary" on:click={() => currentView.set('documenti')}>← Torna</button>
   </div>
 

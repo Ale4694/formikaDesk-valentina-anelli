@@ -57,6 +57,8 @@ export const api = {
       call<PaginatedResult<Documento>>('get_documenti_paginated', { page, pageSize, stato, tipo, search, sortCol, sortDir }),
     get: (id: number) => call<DocumentoCompleto>('get_documento', { id }),
     create: (doc: NuovoDocumento) => call<DocumentoCompleto>('create_documento', { doc }),
+    update: (id: number, doc: NuovoDocumento) => call<DocumentoCompleto>('update_documento', { id, doc }),
+    delete: (id: number) => call<void>('delete_documento', { id }),
     updateStato: (
       id: number,
       stato: string,

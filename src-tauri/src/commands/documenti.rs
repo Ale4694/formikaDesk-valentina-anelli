@@ -274,6 +274,278 @@ pub async fn update_stato_documento(
 }
 
 #[tauri::command]
+pub async fn update_documento(
+    id: i64,
+    doc: NuovoDocumento,
+    state: State<'_, AppState>,
+) -> Result<DocumentoCompleto, AppError> {
+    if doc.numero.trim().is_empty() {
+        return Err(AppError::Validation("numero documento obbligatorio".into()));
+    }
+    if doc.righe.is_empty() {
+        return Err(AppError::Validation("il documento deve avere almeno una riga".into()));
+    }
+
+    let mut tx = state.db.begin().await?;
+
+    let old = sqlx::query_as::<_, Documento>("SELECT * FROM documenti WHERE id=?")
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("documento id={id} non trovato")))?;
+
+    if old.stato != "bozza" && old.stato != "confermato" {
+        return Err(AppError::Validation(format!(
+            "Solo documenti in stato bozza o confermato sono modificabili (stato attuale: {})",
+            old.stato
+        )));
+    }
+
+    let tipi_scarico = ["fattura", "ddt", "vendita_banco", "buono", "fattura_differita"];
+
+    // Ripristina magazzino dalle righe vecchie
+    if tipi_scarico.contains(&old.tipo_documento.as_str()) {
+        let old_righe = sqlx::query_as::<_, RigaDocumento>(
+            "SELECT * FROM righe_documento WHERE documento_id=?",
+        )
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await?;
+
+        for riga in &old_righe {
+            if let Some(rid) = riga.ricambio_id {
+                sqlx::query(
+                    "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
+                )
+                .bind(riga.quantita as i64)
+                .bind(rid)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+        sqlx::query("DELETE FROM movimenti_magazzino WHERE documento_id=?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    // Decollegare i vecchi DDT se era fattura_differita
+    if old.tipo_documento == "fattura_differita" {
+        if let Some(ids_json) = &old.ddt_collegati {
+            if let Ok(ids) = serde_json::from_str::<Vec<i64>>(ids_json) {
+                for ddt_id in ids {
+                    sqlx::query(
+                        "UPDATE documenti SET fatturato=0, updated_at=datetime('now') WHERE id=?",
+                    )
+                    .bind(ddt_id)
+                    .execute(&mut *tx)
+                    .await?;
+                }
+            }
+        }
+    }
+
+    // Calcola nuovi totali
+    let mut totale_imponibile = 0.0f64;
+    let mut totale_iva = 0.0f64;
+    for riga in &doc.righe {
+        let lordo = riga.quantita * riga.prezzo_unitario;
+        let sconto = lordo * (riga.sconto_percentuale / 100.0);
+        let imponibile = lordo - sconto;
+        totale_imponibile += imponibile;
+        totale_iva += imponibile * (riga.iva_percentuale / 100.0);
+    }
+    let totale_documento = totale_imponibile + totale_iva;
+
+    let tipi_senza_scadenza = ["vendita_banco", "buono"];
+    let scadenza_pagamento = if tipi_senza_scadenza.contains(&doc.tipo_documento.as_str()) {
+        None
+    } else {
+        let giorni = doc.giorni_pagamento.unwrap_or(30);
+        NaiveDate::parse_from_str(&doc.data, "%Y-%m-%d")
+            .ok()
+            .map(|d| (d + chrono::Duration::days(giorni)).to_string())
+    };
+    let giorni = doc.giorni_pagamento.unwrap_or(30);
+    let is_fattura_differita: i64 = if doc.tipo_documento == "fattura_differita" { 1 } else { 0 };
+    let ddt_collegati_json: Option<String> = doc
+        .ddt_collegati
+        .as_ref()
+        .map(|ids| serde_json::to_string(ids).unwrap_or_default());
+
+    sqlx::query(
+        "UPDATE documenti SET tipo_documento=?, numero=?, data=?, cliente_id=?, fornitore_id=?,
+         note=?, totale_imponibile=?, totale_iva=?, totale_documento=?,
+         scadenza_pagamento=?, giorni_pagamento=?, is_fattura_differita=?, ddt_collegati=?,
+         updated_at=datetime('now') WHERE id=?",
+    )
+    .bind(&doc.tipo_documento)
+    .bind(&doc.numero)
+    .bind(&doc.data)
+    .bind(doc.cliente_id)
+    .bind(doc.fornitore_id)
+    .bind(&doc.note)
+    .bind(totale_imponibile)
+    .bind(totale_iva)
+    .bind(totale_documento)
+    .bind(&scadenza_pagamento)
+    .bind(giorni)
+    .bind(is_fattura_differita)
+    .bind(&ddt_collegati_json)
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query("DELETE FROM righe_documento WHERE documento_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+
+    for riga in &doc.righe {
+        let lordo = riga.quantita * riga.prezzo_unitario;
+        let sconto = lordo * (riga.sconto_percentuale / 100.0);
+        let imponibile = lordo - sconto;
+        let iva_riga = imponibile * (riga.iva_percentuale / 100.0);
+        let totale_riga = imponibile + iva_riga;
+
+        sqlx::query(
+            "INSERT INTO righe_documento (documento_id, ricambio_id, descrizione, quantita,
+             prezzo_unitario, sconto_percentuale, iva_percentuale, imponibile, totale_iva,
+             totale_riga, ordine) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(id)
+        .bind(riga.ricambio_id)
+        .bind(&riga.descrizione)
+        .bind(riga.quantita)
+        .bind(riga.prezzo_unitario)
+        .bind(riga.sconto_percentuale)
+        .bind(riga.iva_percentuale)
+        .bind(imponibile)
+        .bind(iva_riga)
+        .bind(totale_riga)
+        .bind(riga.ordine)
+        .execute(&mut *tx)
+        .await?;
+
+        if let Some(rid) = riga.ricambio_id {
+            if tipi_scarico.contains(&doc.tipo_documento.as_str()) {
+                sqlx::query(
+                    "UPDATE ricambi SET giacenza=giacenza-?, updated_at=datetime('now') WHERE id=?",
+                )
+                .bind(riga.quantita as i64)
+                .bind(rid)
+                .execute(&mut *tx)
+                .await?;
+
+                sqlx::query(
+                    "INSERT INTO movimenti_magazzino (ricambio_id, tipo_movimento, quantita, documento_id)
+                     VALUES (?, 'scarico', ?, ?)",
+                )
+                .bind(rid)
+                .bind(riga.quantita)
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+    }
+
+    // Collega nuovi DDT se fattura_differita
+    if doc.tipo_documento == "fattura_differita" {
+        if let Some(ids) = &doc.ddt_collegati {
+            for ddt_id in ids {
+                sqlx::query(
+                    "UPDATE documenti SET fatturato=1, updated_at=datetime('now') WHERE id=?",
+                )
+                .bind(ddt_id)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+    }
+
+    tx.commit().await?;
+    get_documento(id, state).await
+}
+
+#[tauri::command]
+pub async fn delete_documento(
+    id: i64,
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
+    let mut tx = state.db.begin().await?;
+
+    let doc = sqlx::query_as::<_, Documento>("SELECT * FROM documenti WHERE id=?")
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("documento id={id} non trovato")))?;
+
+    if doc.stato != "bozza" && doc.stato != "confermato" {
+        return Err(AppError::Validation(format!(
+            "Solo documenti in stato bozza o confermato possono essere eliminati (stato: {})",
+            doc.stato
+        )));
+    }
+
+    let tipi_scarico = ["fattura", "ddt", "vendita_banco", "buono", "fattura_differita"];
+
+    // Ripristina magazzino
+    if tipi_scarico.contains(&doc.tipo_documento.as_str()) {
+        let righe = sqlx::query_as::<_, RigaDocumento>(
+            "SELECT * FROM righe_documento WHERE documento_id=?",
+        )
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await?;
+
+        for riga in &righe {
+            if let Some(rid) = riga.ricambio_id {
+                sqlx::query(
+                    "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
+                )
+                .bind(riga.quantita as i64)
+                .bind(rid)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
+    }
+
+    // Decollegare DDT se era fattura_differita
+    if doc.tipo_documento == "fattura_differita" {
+        if let Some(ids_json) = &doc.ddt_collegati {
+            if let Ok(ids) = serde_json::from_str::<Vec<i64>>(ids_json) {
+                for ddt_id in ids {
+                    sqlx::query(
+                        "UPDATE documenti SET fatturato=0, updated_at=datetime('now') WHERE id=?",
+                    )
+                    .bind(ddt_id)
+                    .execute(&mut *tx)
+                    .await?;
+                }
+            }
+        }
+    }
+
+    sqlx::query("DELETE FROM movimenti_magazzino WHERE documento_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("DELETE FROM righe_documento WHERE documento_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("DELETE FROM documenti WHERE id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+
+    tx.commit().await?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn get_storico_articoli_cliente(
     cliente_id: i64,
     state: State<'_, AppState>,

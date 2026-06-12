@@ -1,15 +1,57 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from 'svelte'
-  import { documenti, clienti, formatCurrency, formatDate, setError, setSuccess, currentView, printData } from '../../lib/stores'
+  import { documenti, clienti, formatCurrency, formatDate, setError, setSuccess, currentView, printData, editDocumentoId } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { Documento } from '../../lib/types'
   import PagamentoModal from '../PagamentoModal.svelte'
+  import ConfirmModal from '../ConfirmModal.svelte'
 
   const dispatch = createEventDispatcher()
 
   let showPagamentoModal = false
   let pagamentoDocId: number | null = null
   let pagamentoDocNumero = ''
+
+  // Modifica ed elimina
+  const TIPI_SCARICO = ['fattura', 'ddt', 'vendita_banco', 'buono', 'fattura_differita']
+  let confirmDeleteOpen = false
+  let docToDelete: Documento | null = null
+
+  $: confirmDeleteTitle = docToDelete?.stato === 'confermato'
+    ? 'Elimina documento confermato'
+    : 'Elimina documento'
+
+  $: confirmDeleteMessage = docToDelete
+    ? docToDelete.stato === 'confermato' && TIPI_SCARICO.includes(docToDelete.tipo_documento)
+      ? `Questo documento è confermato e ha movimentato il magazzino — eliminandolo la giacenza degli articoli sarà ripristinata. Continuare?`
+      : docToDelete.stato === 'confermato'
+        ? `Questo documento è confermato. Sei sicuro di voler procedere con l'eliminazione?`
+        : `Sei sicuro di voler eliminare il documento ${docToDelete.numero}?`
+    : ''
+
+  function modifica(doc: Documento) {
+    editDocumentoId.set(doc.id)
+    currentView.set('nuova-fattura')
+  }
+
+  function apriElimina(doc: Documento) {
+    docToDelete = doc
+    confirmDeleteOpen = true
+  }
+
+  async function confermaElimina() {
+    if (!docToDelete) return
+    confirmDeleteOpen = false
+    const id = docToDelete.id
+    docToDelete = null
+    try {
+      await api.documenti.delete(id)
+      documenti.update(list => list.filter(d => d.id !== id))
+      await loadPage()
+    } catch (e: any) {
+      setError(e?.message ?? 'Errore eliminazione documento')
+    }
+  }
 
   const statoBadge: Record<string, string> = {
     bozza: 'badge-gray', confermato: 'badge-blue', pagato: 'badge-green', annullato: 'badge-red'
@@ -157,6 +199,16 @@
   on:annulla={() => { showPagamentoModal = false; pagamentoDocId = null }}
 />
 
+<ConfirmModal
+  open={confirmDeleteOpen}
+  title={confirmDeleteTitle}
+  message={confirmDeleteMessage}
+  confirmLabel="Elimina"
+  confirmClass="btn-danger"
+  onConfirm={confermaElimina}
+  onCancel={() => { confirmDeleteOpen = false; docToDelete = null }}
+/>
+
 <div class="p-6 space-y-4">
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-semibold text-white">Documenti</h1>
@@ -272,6 +324,30 @@
                     XML FatturaPA
                   </button>
                 {/if}
+                <button
+                  class="btn-secondary text-xs px-2 py-1 flex items-center gap-1"
+                  title={d.stato === 'pagato' || d.stato === 'annullato' ? 'Non modificabile' : 'Modifica documento'}
+                  disabled={d.stato === 'pagato' || d.stato === 'annullato'}
+                  on:click={() => modifica(d)}
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                  Modifica
+                </button>
+                <button
+                  class="btn-secondary text-xs px-2 py-1 flex items-center gap-1 text-red-400 hover:text-red-300 disabled:text-gray-600"
+                  title={d.stato === 'pagato' || d.stato === 'annullato' ? 'Non eliminabile' : 'Elimina documento'}
+                  disabled={d.stato === 'pagato' || d.stato === 'annullato'}
+                  on:click={() => apriElimina(d)}
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  Elimina
+                </button>
               </div>
             </td>
           </tr>

@@ -36,6 +36,7 @@ export const ricambiSottoScorta = derived(ricambi, $r =>
 )
 
 export const searchOpen = writable(false)
+export const editDocumentoId = writable<number | null>(null)
 export const printData = writable<DocumentoCompleto | null>(null)
 export const licenseValid = writable<boolean | null>(null)
 export const licenseInfo = writable<LicenseInfo | null>(null)

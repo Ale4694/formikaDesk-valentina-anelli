@@ -114,6 +114,8 @@ pub fn run() {
             commands::documenti::get_documento,
             commands::documenti::create_documento,
             commands::documenti::update_stato_documento,
+            commands::documenti::update_documento,
+            commands::documenti::delete_documento,
             commands::documenti::get_storico_articoli_cliente,
             commands::dashboard::get_dashboard_stats,
             commands::ricerca::search_global,
