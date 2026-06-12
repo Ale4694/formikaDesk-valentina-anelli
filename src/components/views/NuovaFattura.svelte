@@ -99,7 +99,7 @@
     riga.ricambio_id = r.id
     riga.descrizione = r.descrizione
     riga.prezzo_unitario = r.prezzo_vendita
-    riga.iva_percentuale = r.iva_percentuale
+    riga.iva_percentuale = senzaIva ? 0 : r.iva_percentuale
     righe = [...righe]
     setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [], storicoHits: [] })
     setDescTa(riga._id, { query: r.descrizione, open: false, results: [], storicoHits: [] })
@@ -109,7 +109,7 @@
     riga.ricambio_id = r.id
     riga.descrizione = r.descrizione
     riga.prezzo_unitario = r.prezzo_vendita
-    riga.iva_percentuale = r.iva_percentuale
+    riga.iva_percentuale = senzaIva ? 0 : r.iva_percentuale
     righe = [...righe]
     setDescTa(riga._id, { query: r.descrizione, open: false, results: [], storicoHits: [] })
     setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [], storicoHits: [] })
@@ -119,7 +119,7 @@
     riga.ricambio_id = art.ricambio_id
     riga.descrizione = art.descrizione
     riga.prezzo_unitario = art.prezzo_unitario
-    riga.iva_percentuale = 22
+    riga.iva_percentuale = senzaIva ? 0 : 22
     righe = [...righe]
     setTa(riga._id, { query: `${art.codice_interno} — ${art.descrizione}`, open: false, results: [], storicoHits: [] })
     setDescTa(riga._id, { query: art.descrizione, open: false, results: [], storicoHits: [] })
@@ -129,7 +129,7 @@
     riga.ricambio_id = art.ricambio_id
     riga.descrizione = art.descrizione
     riga.prezzo_unitario = art.prezzo_unitario
-    riga.iva_percentuale = 22
+    riga.iva_percentuale = senzaIva ? 0 : 22
     righe = [...righe]
     setDescTa(riga._id, { query: art.descrizione, open: false, results: [], storicoHits: [] })
     setTa(riga._id, { query: `${art.codice_interno} — ${art.descrizione}`, open: false, results: [], storicoHits: [] })
@@ -139,7 +139,7 @@
     riga.ricambio_id = null
     riga.descrizione = ''
     riga.prezzo_unitario = 0
-    riga.iva_percentuale = 22
+    riga.iva_percentuale = senzaIva ? 0 : 22
     righe = [...righe]
     setTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
     setDescTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
@@ -149,7 +149,7 @@
     riga.ricambio_id = null
     riga.descrizione = ''
     riga.prezzo_unitario = 0
-    riga.iva_percentuale = 22
+    riga.iva_percentuale = senzaIva ? 0 : 22
     righe = [...righe]
     setDescTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
     setTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
@@ -199,6 +199,8 @@
       storicoCliente = []
     }
   }
+
+  $: senzaIva = tipoDocumento === 'buono' || tipoDocumento === 'preventivo'
 
   const tipiDisponibili: { value: TipoDocumento; label: string }[] = [
     { value: 'fattura',           label: 'Fattura' },
@@ -348,7 +350,7 @@
     righe = [...righe, {
       _id: id, ricambio_id: null, descrizione: '',
       quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0,
-      iva_percentuale: 22, ordine: righe.length
+      iva_percentuale: senzaIva ? 0 : 22, ordine: righe.length
     }]
   }
 
@@ -697,16 +699,18 @@
                 readonly={tipoDocumento === 'fattura_differita'}
               />
             </div>
-            <!-- IVA -->
-            <div class="col-span-1">
-              <label class="label">IVA %</label>
-              <input class="input text-xs" type="number" min="0"
-                bind:value={riga.iva_percentuale}
-                readonly={tipoDocumento === 'fattura_differita'}
-              />
-            </div>
+            <!-- IVA — nascosta per buono/preventivo -->
+            {#if !senzaIva}
+              <div class="col-span-1">
+                <label class="label">IVA %</label>
+                <input class="input text-xs" type="number" min="0"
+                  bind:value={riga.iva_percentuale}
+                  readonly={tipoDocumento === 'fattura_differita'}
+                />
+              </div>
+            {/if}
             <!-- Totale + rimuovi -->
-            <div class="col-span-1 flex flex-col items-end gap-1 pt-5">
+            <div class="{senzaIva ? 'col-span-2' : 'col-span-1'} flex flex-col items-end gap-1 pt-5">
               <p class="text-sm font-medium text-green-400">
                 {formatCurrency(imponibileRiga(riga) * (1 + riga.iva_percentuale / 100))}
               </p>
@@ -724,7 +728,7 @@
 
       <!-- Totali -->
       <div class="px-4 py-3 border-t border-gray-800 bg-gray-800/30 flex justify-end gap-6 text-sm">
-        {#if tipoDocumento !== 'buono' && tipoDocumento !== 'vendita_banco'}
+        {#if !senzaIva && tipoDocumento !== 'vendita_banco'}
           <span class="text-gray-400">
             Imponibile: <span class="text-white font-medium">{formatCurrency(totaleImponibile)}</span>
           </span>

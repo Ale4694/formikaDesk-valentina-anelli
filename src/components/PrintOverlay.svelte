@@ -14,6 +14,7 @@
 
   $: doc = $printData?.documento
   $: righe = $printData?.righe ?? []
+  $: senzaIva = doc?.tipo_documento === 'buono' || doc?.tipo_documento === 'preventivo'
   $: cliente = doc?.cliente_id != null
     ? $clienti.find(c => c.id === doc!.cliente_id) ?? null
     : null
@@ -88,7 +89,7 @@
             <th class="inv-th inv-th-right">Qtà</th>
             <th class="inv-th inv-th-right">Prezzo unit.</th>
             <th class="inv-th inv-th-right">Sconto</th>
-            <th class="inv-th inv-th-right">IVA</th>
+            {#if !senzaIva}<th class="inv-th inv-th-right">IVA</th>{/if}
             <th class="inv-th inv-th-right">Totale riga</th>
           </tr>
         </thead>
@@ -99,22 +100,24 @@
               <td class="inv-td inv-td-right">{r.quantita}</td>
               <td class="inv-td inv-td-right">{formatCurrency(r.prezzo_unitario)}</td>
               <td class="inv-td inv-td-right">{r.sconto_percentuale > 0 ? r.sconto_percentuale + '%' : '—'}</td>
-              <td class="inv-td inv-td-right">{r.iva_percentuale}%</td>
+              {#if !senzaIva}<td class="inv-td inv-td-right">{r.iva_percentuale}%</td>{/if}
               <td class="inv-td inv-td-right inv-td-bold">{formatCurrency(r.totale_riga)}</td>
             </tr>
           {/each}
         </tbody>
         <tfoot>
-          <tr class="inv-tfoot-row">
-            <td colspan="5" class="inv-tfoot-label">Imponibile</td>
-            <td class="inv-tfoot-val">{formatCurrency(doc.totale_imponibile)}</td>
-          </tr>
-          <tr class="inv-tfoot-row">
-            <td colspan="5" class="inv-tfoot-label">IVA</td>
-            <td class="inv-tfoot-val">{formatCurrency(doc.totale_iva)}</td>
-          </tr>
+          {#if !senzaIva}
+            <tr class="inv-tfoot-row">
+              <td colspan="5" class="inv-tfoot-label">Imponibile</td>
+              <td class="inv-tfoot-val">{formatCurrency(doc.totale_imponibile)}</td>
+            </tr>
+            <tr class="inv-tfoot-row">
+              <td colspan="5" class="inv-tfoot-label">IVA</td>
+              <td class="inv-tfoot-val">{formatCurrency(doc.totale_iva)}</td>
+            </tr>
+          {/if}
           <tr class="inv-tfoot-total">
-            <td colspan="5" class="inv-tfoot-total-label">TOTALE DOCUMENTO</td>
+            <td colspan={senzaIva ? 4 : 5} class="inv-tfoot-total-label">TOTALE DOCUMENTO</td>
             <td class="inv-tfoot-total-val">{formatCurrency(doc.totale_documento)}</td>
           </tr>
         </tfoot>
