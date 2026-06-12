@@ -2,7 +2,7 @@
   import { onMount, createEventDispatcher } from 'svelte'
   import { clienti, documenti, formatCurrency, setError, currentView } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico } from '../../lib/types'
+  import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente } from '../../lib/types'
 
   const dispatch = createEventDispatcher()
 
@@ -111,26 +111,56 @@
     setTa(riga._id, { query: '', results: [], open: false })
   }
 
+  // Typeahead selezione cliente
+  interface ClienteTAState { query: string; results: Cliente[]; open: boolean }
+  let clienteTA: ClienteTAState = { query: '', results: [], open: false }
+  let clienteTATimer: ReturnType<typeof setTimeout>
+
+  async function onClienteInput(value: string) {
+    clienteTA = { query: value, results: clienteTA.results, open: !!value.trim() }
+    clienteId = null
+    clearTimeout(clienteTATimer)
+    if (!value.trim()) { clienteTA = { query: '', results: [], open: false }; return }
+    clienteTATimer = setTimeout(async () => {
+      try {
+        const res = await api.clienti.getPaginated(0, 10, value)
+        clienteTA = { query: value, results: res.items, open: true }
+      } catch {}
+    }, 300)
+  }
+
+  function selectCliente(c: Cliente) {
+    clienteId = c.id
+    clienteTA = { query: c.ragione_sociale, results: [], open: false }
+  }
+
+  function clearCliente() {
+    clienteId = null
+    clienteTA = { query: '', results: [], open: false }
+  }
+
   // Storico acquisti cliente
   let storicoCliente: ArticoloStorico[] = []
   let loadingStorico = false
+  let storicoLoaded = false
 
-  $: {
-    if (clienteId && tipoDocumento !== 'fattura_differita') {
-      caricaStorico(clienteId)
-    } else {
-      storicoCliente = []
-    }
+  $: if (clienteId && tipoDocumento !== 'fattura_differita') {
+    caricaStorico(clienteId)
+  } else {
+    storicoCliente = []
+    storicoLoaded = false
   }
 
   async function caricaStorico(id: number) {
     loadingStorico = true
+    storicoLoaded = false
     try {
       storicoCliente = await api.documenti.getStoricoCliente(id)
     } catch {
       storicoCliente = []
     } finally {
       loadingStorico = false
+      storicoLoaded = true
     }
   }
 
@@ -364,13 +394,36 @@
             disabled
           />
         {:else}
-          <select
-            class="input {errCliente ? 'border-red-500 focus:ring-red-500' : ''}"
-            bind:value={clienteId}
-          >
-            <option value={null}>— Seleziona cliente —</option>
-            {#each $clienti as c}<option value={c.id}>{c.ragione_sociale}</option>{/each}
-          </select>
+          <div class="relative">
+            <input
+              class="input pr-7 {errCliente ? 'border-red-500 focus:ring-red-500' : ''}"
+              placeholder="Cerca cliente per nome, P.IVA..."
+              value={clienteTA.query}
+              on:input={e => onClienteInput((e.target as HTMLInputElement).value)}
+              on:keydown={e => { if (e.key === 'Escape') clienteTA = { ...clienteTA, open: false } }}
+              on:blur={() => setTimeout(() => clienteTA = { ...clienteTA, open: false }, 150)}
+            />
+            {#if clienteTA.query}
+              <button
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 leading-none px-0.5"
+                tabindex="-1"
+                on:mousedown|preventDefault={clearCliente}
+              >✕</button>
+            {/if}
+            {#if clienteTA.open && clienteTA.results.length > 0}
+              <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                {#each clienteTA.results as c (c.id)}
+                  <button
+                    class="w-full text-left px-3 py-2 hover:bg-gray-700 flex flex-col gap-0.5"
+                    on:mousedown|preventDefault={() => selectCliente(c)}
+                  >
+                    <span class="text-gray-200 text-xs font-medium">{c.ragione_sociale}</span>
+                    {#if c.partita_iva}<span class="text-gray-500 text-xs">P.IVA: {c.partita_iva}</span>{/if}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
           {#if errCliente}<p class="text-xs text-red-400 mt-1">{errCliente}</p>{/if}
         {/if}
       </div>
@@ -409,6 +462,37 @@
         {#if caricandoDdt}
           <p class="text-xs text-gray-500">Caricamento righe DDT…</p>
         {/if}
+      {/if}
+    </div>
+  {/if}
+
+  <!-- Storico acquisti cliente -->
+  {#if clienteId && tipoDocumento !== 'fattura_differita'}
+    <div class="card p-4 space-y-2">
+      <h2 class="text-sm font-semibold text-white">Acquisti precedenti di questo cliente</h2>
+      {#if loadingStorico}
+        <p class="text-xs text-gray-500 py-1">Caricamento storico acquisti…</p>
+      {:else if storicoLoaded && storicoCliente.length === 0}
+        <p class="text-xs text-gray-500 py-1">Nessun acquisto precedente registrato per questo cliente.</p>
+      {:else}
+        <div class="divide-y divide-gray-800">
+          {#each storicoCliente as art}
+            <div class="py-2 flex items-center gap-3">
+              <div class="flex-1 min-w-0">
+                <span class="font-mono text-brand-400 text-xs">{art.codice_interno}</span>
+                <span class="text-gray-300 text-xs ml-2">{art.descrizione}</span>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+                <span title="Volte acquistato">×{art.frequenza}</span>
+                <span>{formatCurrency(art.prezzo_unitario)}</span>
+              </div>
+              <button
+                class="btn-secondary text-xs shrink-0"
+                on:click={() => aggiungiDaStorico(art)}
+              >+ Aggiungi</button>
+            </div>
+          {/each}
+        </div>
       {/if}
     </div>
   {/if}
@@ -591,31 +675,6 @@
       </div>
     {/if}
   </div>
-
-  <!-- Storico acquisti cliente -->
-  {#if storicoCliente.length > 0 && tipoDocumento !== 'fattura_differita'}
-    <div class="card p-4 space-y-2">
-      <h2 class="text-sm font-semibold text-white">Acquisti precedenti di questo cliente</h2>
-      <div class="divide-y divide-gray-800">
-        {#each storicoCliente as art}
-          <div class="py-2 flex items-center gap-3">
-            <div class="flex-1 min-w-0">
-              <span class="font-mono text-brand-400 text-xs">{art.codice_interno}</span>
-              <span class="text-gray-300 text-xs ml-2 truncate">{art.descrizione}</span>
-            </div>
-            <div class="flex items-center gap-3 text-xs text-gray-500 shrink-0">
-              <span title="Volte acquistato">×{art.frequenza}</span>
-              <span>{formatCurrency(art.prezzo_unitario)}</span>
-            </div>
-            <button
-              class="btn-secondary text-xs shrink-0"
-              on:click={() => aggiungiDaStorico(art)}
-            >+ Aggiungi</button>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {/if}
 
   <!-- Nota informativa per tipi non fiscali -->
   {#if tipoDocumento === 'buono'}
