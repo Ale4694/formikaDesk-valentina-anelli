@@ -23,14 +23,16 @@
   let nextId = 0
 
   // Typeahead per selezione articolo per riga
-  interface TAState { query: string; results: Ricambio[]; open: boolean }
+  interface TAState { query: string; results: Ricambio[]; storicoHits: ArticoloStorico[]; open: boolean }
   let righeTA: Record<number, TAState> = {}
   let taTimers: Record<number, ReturnType<typeof setTimeout>> = {}
   let righeDescTA: Record<number, TAState> = {}
   let descTaTimers: Record<number, ReturnType<typeof setTimeout>> = {}
 
+  const emptyTA = (): TAState => ({ query: '', results: [], storicoHits: [], open: false })
+
   function getTa(id: number): TAState {
-    return righeTA[id] ?? { query: '', results: [], open: false }
+    return righeTA[id] ?? emptyTA()
   }
 
   function setTa(id: number, patch: Partial<TAState>) {
@@ -38,35 +40,55 @@
   }
 
   function getDescTa(id: number): TAState {
-    return righeDescTA[id] ?? { query: '', results: [], open: false }
+    return righeDescTA[id] ?? emptyTA()
   }
 
   function setDescTa(id: number, patch: Partial<TAState>) {
     righeDescTA = { ...righeDescTA, [id]: { ...getDescTa(id), ...patch } }
   }
 
+  function buildStoricoHits(query: string): ArticoloStorico[] {
+    if (!clienteId || tipoDocumento === 'fattura_differita' || !query.trim()) return []
+    const q = query.trim().toLowerCase()
+    return storicoCliente
+      .filter(a => a.codice_interno.toLowerCase().includes(q) || a.descrizione.toLowerCase().includes(q))
+      .slice(0, 10)
+  }
+
   async function onTaInput(riga: RigaUI, value: string) {
-    setTa(riga._id, { query: value, open: !!value.trim() })
+    const hits = buildStoricoHits(value)
+    setTa(riga._id, { query: value, open: !!value.trim(), storicoHits: hits })
     clearTimeout(taTimers[riga._id])
-    if (!value.trim()) { setTa(riga._id, { results: [] }); return }
+    if (!value.trim()) { setTa(riga._id, { results: [], storicoHits: [] }); return }
     taTimers[riga._id] = setTimeout(async () => {
+      const q = getTa(riga._id).query
+      if (!q.trim()) return
       try {
-        const results = (await api.ricambi.search(value)).slice(0, 10)
-        setTa(riga._id, { results, open: true })
+        const currentHits = buildStoricoHits(q)
+        const hitIds = new Set(currentHits.map(a => a.ricambio_id))
+        const all = await api.ricambi.search(q)
+        const results = all.filter(r => !hitIds.has(r.id)).slice(0, Math.max(0, 10 - currentHits.length))
+        setTa(riga._id, { results, storicoHits: currentHits, open: true })
       } catch {}
     }, 300)
   }
 
   async function onDescTaInput(riga: RigaUI, value: string) {
-    setDescTa(riga._id, { query: value, open: !!value.trim() })
+    const hits = buildStoricoHits(value)
+    setDescTa(riga._id, { query: value, open: !!value.trim(), storicoHits: hits })
     riga.descrizione = value
     righe = [...righe]
     clearTimeout(descTaTimers[riga._id])
-    if (!value.trim()) { setDescTa(riga._id, { results: [] }); return }
+    if (!value.trim()) { setDescTa(riga._id, { results: [], storicoHits: [] }); return }
     descTaTimers[riga._id] = setTimeout(async () => {
+      const q = getDescTa(riga._id).query
+      if (!q.trim()) return
       try {
-        const results = (await api.ricambi.search(value)).slice(0, 10)
-        setDescTa(riga._id, { results, open: true })
+        const currentHits = buildStoricoHits(q)
+        const hitIds = new Set(currentHits.map(a => a.ricambio_id))
+        const all = await api.ricambi.search(q)
+        const results = all.filter(r => !hitIds.has(r.id)).slice(0, Math.max(0, 10 - currentHits.length))
+        setDescTa(riga._id, { results, storicoHits: currentHits, open: true })
       } catch {}
     }, 300)
   }
@@ -77,8 +99,8 @@
     riga.prezzo_unitario = r.prezzo_vendita
     riga.iva_percentuale = r.iva_percentuale
     righe = [...righe]
-    setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [] })
-    setDescTa(riga._id, { query: r.descrizione, open: false, results: [] })
+    setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [], storicoHits: [] })
+    setDescTa(riga._id, { query: r.descrizione, open: false, results: [], storicoHits: [] })
   }
 
   function selectDescTa(riga: RigaUI, r: Ricambio) {
@@ -87,8 +109,28 @@
     riga.prezzo_unitario = r.prezzo_vendita
     riga.iva_percentuale = r.iva_percentuale
     righe = [...righe]
-    setDescTa(riga._id, { query: r.descrizione, open: false, results: [] })
-    setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [] })
+    setDescTa(riga._id, { query: r.descrizione, open: false, results: [], storicoHits: [] })
+    setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [], storicoHits: [] })
+  }
+
+  function selectTaFromStorico(riga: RigaUI, art: ArticoloStorico) {
+    riga.ricambio_id = art.ricambio_id
+    riga.descrizione = art.descrizione
+    riga.prezzo_unitario = art.prezzo_unitario
+    riga.iva_percentuale = 22
+    righe = [...righe]
+    setTa(riga._id, { query: `${art.codice_interno} — ${art.descrizione}`, open: false, results: [], storicoHits: [] })
+    setDescTa(riga._id, { query: art.descrizione, open: false, results: [], storicoHits: [] })
+  }
+
+  function selectDescTaFromStorico(riga: RigaUI, art: ArticoloStorico) {
+    riga.ricambio_id = art.ricambio_id
+    riga.descrizione = art.descrizione
+    riga.prezzo_unitario = art.prezzo_unitario
+    riga.iva_percentuale = 22
+    righe = [...righe]
+    setDescTa(riga._id, { query: art.descrizione, open: false, results: [], storicoHits: [] })
+    setTa(riga._id, { query: `${art.codice_interno} — ${art.descrizione}`, open: false, results: [], storicoHits: [] })
   }
 
   function clearTa(riga: RigaUI) {
@@ -97,8 +139,8 @@
     riga.prezzo_unitario = 0
     riga.iva_percentuale = 22
     righe = [...righe]
-    setTa(riga._id, { query: '', results: [], open: false })
-    setDescTa(riga._id, { query: '', results: [], open: false })
+    setTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
+    setDescTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
   }
 
   function clearDescTa(riga: RigaUI) {
@@ -107,8 +149,8 @@
     riga.prezzo_unitario = 0
     riga.iva_percentuale = 22
     righe = [...righe]
-    setDescTa(riga._id, { query: '', results: [], open: false })
-    setTa(riga._id, { query: '', results: [], open: false })
+    setDescTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
+    setTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
   }
 
   // Typeahead selezione cliente
@@ -139,45 +181,21 @@
     clienteTA = { query: '', results: [], open: false }
   }
 
-  // Storico acquisti cliente
+  // Storico acquisti cliente (alimenta i dropdown di ricambio/descrizione)
   let storicoCliente: ArticoloStorico[] = []
-  let loadingStorico = false
-  let storicoLoaded = false
 
   $: if (clienteId && tipoDocumento !== 'fattura_differita') {
     caricaStorico(clienteId)
   } else {
     storicoCliente = []
-    storicoLoaded = false
   }
 
   async function caricaStorico(id: number) {
-    loadingStorico = true
-    storicoLoaded = false
     try {
       storicoCliente = await api.documenti.getStoricoCliente(id)
     } catch {
       storicoCliente = []
-    } finally {
-      loadingStorico = false
-      storicoLoaded = true
     }
-  }
-
-  function aggiungiDaStorico(art: ArticoloStorico) {
-    const id = nextId++
-    righeTA = { ...righeTA, [id]: { query: `${art.codice_interno} — ${art.descrizione}`, results: [], open: false } }
-    righeDescTA = { ...righeDescTA, [id]: { query: art.descrizione, results: [], open: false } }
-    righe = [...righe, {
-      _id: id,
-      ricambio_id: art.ricambio_id,
-      descrizione: art.descrizione,
-      quantita: 1,
-      prezzo_unitario: art.prezzo_unitario,
-      sconto_percentuale: 0,
-      iva_percentuale: 22,
-      ordine: righe.length,
-    }]
   }
 
   const tipiDisponibili: { value: TipoDocumento; label: string }[] = [
@@ -283,8 +301,8 @@
 
   function addRiga() {
     const id = nextId++
-    righeTA = { ...righeTA, [id]: { query: '', results: [], open: false } }
-    righeDescTA = { ...righeDescTA, [id]: { query: '', results: [], open: false } }
+    righeTA = { ...righeTA, [id]: emptyTA() }
+    righeDescTA = { ...righeDescTA, [id]: emptyTA() }
     righe = [...righe, {
       _id: id, ricambio_id: null, descrizione: '',
       quantita: 1, prezzo_unitario: 0, sconto_percentuale: 0,
@@ -466,37 +484,6 @@
     </div>
   {/if}
 
-  <!-- Storico acquisti cliente -->
-  {#if clienteId && tipoDocumento !== 'fattura_differita'}
-    <div class="card p-4 space-y-2">
-      <h2 class="text-sm font-semibold text-white">Acquisti precedenti di questo cliente</h2>
-      {#if loadingStorico}
-        <p class="text-xs text-gray-500 py-1">Caricamento storico acquisti…</p>
-      {:else if storicoLoaded && storicoCliente.length === 0}
-        <p class="text-xs text-gray-500 py-1">Nessun acquisto precedente registrato per questo cliente.</p>
-      {:else}
-        <div class="divide-y divide-gray-800">
-          {#each storicoCliente as art}
-            <div class="py-2 flex items-center gap-3">
-              <div class="flex-1 min-w-0">
-                <span class="font-mono text-brand-400 text-xs">{art.codice_interno}</span>
-                <span class="text-gray-300 text-xs ml-2">{art.descrizione}</span>
-              </div>
-              <div class="flex items-center gap-3 text-xs text-gray-500 shrink-0">
-                <span title="Volte acquistato">×{art.frequenza}</span>
-                <span>{formatCurrency(art.prezzo_unitario)}</span>
-              </div>
-              <button
-                class="btn-secondary text-xs shrink-0"
-                on:click={() => aggiungiDaStorico(art)}
-              >+ Aggiungi</button>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  {/if}
-
   <!-- Righe documento -->
   <div class="card overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
@@ -547,8 +534,22 @@
                       on:mousedown|preventDefault={() => clearTa(riga)}
                     >✕</button>
                   {/if}
-                  {#if getTa(riga._id).open && getTa(riga._id).results.length > 0}
+                  {#if getTa(riga._id).open && (getTa(riga._id).storicoHits.length > 0 || getTa(riga._id).results.length > 0)}
                     <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {#each getTa(riga._id).storicoHits as art (art.ricambio_id)}
+                        <button
+                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-1.5"
+                          on:mousedown|preventDefault={() => selectTaFromStorico(riga, art)}
+                        >
+                          <span class="text-yellow-400 text-xs shrink-0">★</span>
+                          <span class="font-mono text-brand-400 text-xs shrink-0">{art.codice_interno}</span>
+                          <span class="text-gray-300 text-xs truncate flex-1">{art.descrizione}</span>
+                          <span class="text-gray-500 text-xs shrink-0">×{art.frequenza}</span>
+                        </button>
+                      {/each}
+                      {#if getTa(riga._id).storicoHits.length > 0 && getTa(riga._id).results.length > 0}
+                        <div class="px-3 py-0.5 border-t border-gray-700 text-gray-600 text-xs">Altri risultati</div>
+                      {/if}
                       {#each getTa(riga._id).results as r (r.id)}
                         <button
                           class="w-full text-left px-3 py-2 hover:bg-gray-700 flex flex-col gap-0.5"
@@ -585,8 +586,22 @@
                       on:mousedown|preventDefault={() => clearDescTa(riga)}
                     >✕</button>
                   {/if}
-                  {#if getDescTa(riga._id).open && getDescTa(riga._id).results.length > 0}
+                  {#if getDescTa(riga._id).open && (getDescTa(riga._id).storicoHits.length > 0 || getDescTa(riga._id).results.length > 0)}
                     <div class="absolute z-50 top-full left-0 right-0 mt-0.5 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {#each getDescTa(riga._id).storicoHits as art (art.ricambio_id)}
+                        <button
+                          class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-1.5"
+                          on:mousedown|preventDefault={() => selectDescTaFromStorico(riga, art)}
+                        >
+                          <span class="text-yellow-400 text-xs shrink-0">★</span>
+                          <span class="text-gray-300 text-xs truncate flex-1">{art.descrizione}</span>
+                          <span class="font-mono text-brand-400 text-xs shrink-0">{art.codice_interno}</span>
+                          <span class="text-gray-500 text-xs shrink-0">×{art.frequenza}</span>
+                        </button>
+                      {/each}
+                      {#if getDescTa(riga._id).storicoHits.length > 0 && getDescTa(riga._id).results.length > 0}
+                        <div class="px-3 py-0.5 border-t border-gray-700 text-gray-600 text-xs">Altri risultati</div>
+                      {/if}
                       {#each getDescTa(riga._id).results as r (r.id)}
                         <button
                           class="w-full text-left px-3 py-2 hover:bg-gray-700 flex flex-col gap-0.5"
