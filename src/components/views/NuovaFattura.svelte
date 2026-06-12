@@ -214,9 +214,10 @@
 
   function computeNumero(tipo: TipoDocumento): string {
     const anno = new Date().getFullYear()
+    const minNum = (tipo === 'fattura' || tipo === 'ddt' || tipo === 'fattura_differita') ? 16 : 1
     if (tipo === 'fattura') {
       const n = $documenti.filter(d => d.tipo_documento === 'fattura' && d.numero.startsWith(`${anno}/`)).length
-      return `${anno}/${String(n + 1).padStart(3, '0')}`
+      return `${anno}/${String(Math.max(n + 1, minNum)).padStart(3, '0')}`
     }
     const prefissi: Partial<Record<TipoDocumento, string>> = {
       ddt:               `DDT-${anno}-`,
@@ -228,7 +229,7 @@
     }
     const pref = prefissi[tipo] ?? `${anno}-`
     const n = $documenti.filter(d => d.tipo_documento === tipo && d.numero.startsWith(pref)).length
-    return `${pref}${String(n + 1).padStart(3, '0')}`
+    return `${pref}${String(Math.max(n + 1, minNum)).padStart(3, '0')}`
   }
 
   onMount(async () => {
