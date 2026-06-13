@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod config;
+pub mod ddt_fornitore;
 pub mod cassa;
 pub mod clienti;
 pub mod documenti;

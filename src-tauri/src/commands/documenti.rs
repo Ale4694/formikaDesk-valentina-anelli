@@ -302,9 +302,12 @@ pub async fn update_documento(
     }
 
     let tipi_scarico = ["fattura", "ddt", "vendita_banco", "buono", "fattura_differita"];
+    let tipi_carico  = ["ddt_fornitore"];
 
     // Ripristina magazzino dalle righe vecchie
-    if tipi_scarico.contains(&old.tipo_documento.as_str()) {
+    if tipi_scarico.contains(&old.tipo_documento.as_str())
+        || tipi_carico.contains(&old.tipo_documento.as_str())
+    {
         let old_righe = sqlx::query_as::<_, RigaDocumento>(
             "SELECT * FROM righe_documento WHERE documento_id=?",
         )
@@ -314,13 +317,25 @@ pub async fn update_documento(
 
         for riga in &old_righe {
             if let Some(rid) = riga.ricambio_id {
-                sqlx::query(
-                    "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
-                )
-                .bind(riga.quantita as i64)
-                .bind(rid)
-                .execute(&mut *tx)
-                .await?;
+                if tipi_scarico.contains(&old.tipo_documento.as_str()) {
+                    // Ripristina scarico: giacenza++
+                    sqlx::query(
+                        "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
+                    )
+                    .bind(riga.quantita as i64)
+                    .bind(rid)
+                    .execute(&mut *tx)
+                    .await?;
+                } else {
+                    // Ripristina carico: giacenza--
+                    sqlx::query(
+                        "UPDATE ricambi SET giacenza=giacenza-?, updated_at=datetime('now') WHERE id=?",
+                    )
+                    .bind(riga.quantita as i64)
+                    .bind(rid)
+                    .execute(&mut *tx)
+                    .await?;
+                }
             }
         }
         sqlx::query("DELETE FROM movimenti_magazzino WHERE documento_id=?")
@@ -446,6 +461,24 @@ pub async fn update_documento(
                 .bind(id)
                 .execute(&mut *tx)
                 .await?;
+            } else if doc.tipo_documento == "ddt_fornitore" {
+                sqlx::query(
+                    "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
+                )
+                .bind(riga.quantita as i64)
+                .bind(rid)
+                .execute(&mut *tx)
+                .await?;
+
+                sqlx::query(
+                    "INSERT INTO movimenti_magazzino (ricambio_id, tipo_movimento, quantita, documento_id, note)
+                     VALUES (?, 'carico', ?, ?, 'DDT Fornitore')",
+                )
+                .bind(rid)
+                .bind(riga.quantita)
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
             }
         }
     }
@@ -489,9 +522,12 @@ pub async fn delete_documento(
     }
 
     let tipi_scarico = ["fattura", "ddt", "vendita_banco", "buono", "fattura_differita"];
+    let tipi_carico  = ["ddt_fornitore"];
 
     // Ripristina magazzino
-    if tipi_scarico.contains(&doc.tipo_documento.as_str()) {
+    if tipi_scarico.contains(&doc.tipo_documento.as_str())
+        || tipi_carico.contains(&doc.tipo_documento.as_str())
+    {
         let righe = sqlx::query_as::<_, RigaDocumento>(
             "SELECT * FROM righe_documento WHERE documento_id=?",
         )
@@ -501,13 +537,24 @@ pub async fn delete_documento(
 
         for riga in &righe {
             if let Some(rid) = riga.ricambio_id {
-                sqlx::query(
-                    "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
-                )
-                .bind(riga.quantita as i64)
-                .bind(rid)
-                .execute(&mut *tx)
-                .await?;
+                if tipi_scarico.contains(&doc.tipo_documento.as_str()) {
+                    sqlx::query(
+                        "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
+                    )
+                    .bind(riga.quantita as i64)
+                    .bind(rid)
+                    .execute(&mut *tx)
+                    .await?;
+                } else {
+                    // ddt_fornitore: ripristina il carico (giacenza--)
+                    sqlx::query(
+                        "UPDATE ricambi SET giacenza=giacenza-?, updated_at=datetime('now') WHERE id=?",
+                    )
+                    .bind(riga.quantita as i64)
+                    .bind(rid)
+                    .execute(&mut *tx)
+                    .await?;
+                }
             }
         }
     }

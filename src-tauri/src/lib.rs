@@ -148,6 +148,11 @@ pub fn run() {
             commands::config::salva_intestazione,
             commands::update::check_update,
             commands::update::install_update,
+            commands::ddt_fornitore::seleziona_pdf_ddt,
+            commands::ddt_fornitore::parse_ddt_fornitore_pdf,
+            commands::ddt_fornitore::importa_ddt_fornitore,
+            commands::ddt_fornitore::apri_pdf_allegato,
+            commands::ddt_fornitore::crea_fornitore_rapido,
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Tauri");

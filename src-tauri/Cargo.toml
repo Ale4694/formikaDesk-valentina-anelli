@@ -27,6 +27,8 @@ thiserror = "1"
 log = "0.4"
 env_logger = "0.11"
 sha2 = "0.10"
+pdf-extract = "0.7"
+regex = "1"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

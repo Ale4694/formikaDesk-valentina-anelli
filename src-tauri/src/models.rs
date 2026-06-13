@@ -137,6 +137,7 @@ pub struct Documento {
     pub ddt_collegati: Option<String>,
     pub is_fattura_differita: i64,
     pub fatturato: i64,
+    pub pdf_allegato: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

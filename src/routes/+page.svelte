@@ -14,6 +14,7 @@
   import LicenseGate from '../components/LicenseGate.svelte'
   import Veicoli from '../components/views/Veicoli.svelte'
   import OrdiniFornitore from '../components/views/OrdiniFornitore.svelte'
+  import ImportaDdtFornitore from '../components/views/ImportaDdtFornitore.svelte'
   import Scadenzario from '../components/views/Scadenzario.svelte'
   import Cassa from '../components/views/Cassa.svelte'
   import StoricoCassa from '../components/views/StoricoCassa.svelte'
@@ -137,6 +138,8 @@
         <NuovaFattura on:refresh={loadAll} />
       {:else if $currentView === 'veicoli'}
         <Veicoli />
+      {:else if $currentView === 'importa-ddt-forn'}
+        <ImportaDdtFornitore />
       {:else if $currentView === 'ordini-fornitore'}
         <OrdiniFornitore on:refresh={loadAll} />
       {:else if $currentView === 'scadenzario'}

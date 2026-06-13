@@ -100,6 +100,7 @@ export interface NuovoRicambio {
 export type TipoDocumento =
   | 'fattura' | 'preventivo' | 'ddt' | 'nota_credito'
   | 'vendita_banco' | 'buono' | 'fattura_differita'
+  | 'ddt_fornitore'
 
 export interface Documento {
   id: number
@@ -124,6 +125,7 @@ export interface Documento {
   ddt_collegati: string | null
   is_fattura_differita: number
   fatturato: number
+  pdf_allegato: string | null
 }
 
 export interface RigaDocumento {
@@ -202,6 +204,7 @@ export type View =
   | 'veicoli'
   | 'fornitori'
   | 'ordini-fornitore'
+  | 'importa-ddt-forn'
   | 'documenti'
   | 'nuova-fattura'
   | 'scadenzario'
@@ -425,4 +428,30 @@ export interface ArticoloStorico {
   prezzo_unitario: number
   quantita_totale: number
   frequenza: number
+}
+
+export interface ParseDdtResult {
+  righe: RigaDdtParsed[]
+  fornitore_rilevato_nome: string | null
+  fornitore_rilevato_piva: string | null
+  fornitore_id_match: number | null
+}
+
+export interface RigaDdtParsed {
+  codice_fornitore: string
+  descrizione: string
+  um: string
+  quantita: number
+  ricambio_id: number | null
+  codice_interno_match: string | null
+  descrizione_match: string | null
+}
+
+export interface RigaDdtImport {
+  codice_fornitore: string
+  descrizione: string
+  um: string
+  quantita: number
+  ricambio_id: number | null
+  carica_magazzino: boolean
 }
