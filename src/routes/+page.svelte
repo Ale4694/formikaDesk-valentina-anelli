@@ -63,7 +63,6 @@
   }
 
   onMount(async () => {
-    console.log('[UPDATE DEBUG] onMount started')
     try {
       const cfg = await api.config.get()
       appConfig.set(cfg)
@@ -71,19 +70,16 @@
       // config non critica, usa defaults
     }
     const info = await api.license.checkLicense()
-    console.log('[UPDATE DEBUG] license info:', info)
     licenseInfo.set(info)
     licenseValid.set(info.valid)
     if (info.valid) {
       await loadAll()
       try {
         currentVersion = await getVersion()
-        console.log('[UPDATE DEBUG] currentVersion:', currentVersion)
         const update = await invoke<{ version: string; notes: string; date: string } | null>('check_update')
-        console.log('[UPDATE DEBUG] check_update result:', update)
         if (update) updateInfo = update
-      } catch (e) {
-        console.error('[UPDATE DEBUG] errore:', e)
+      } catch {
+        // aggiornamenti non critici: ignora errori di rete
       }
     }
   })
