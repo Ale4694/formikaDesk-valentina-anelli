@@ -63,6 +63,7 @@
   }
 
   onMount(async () => {
+    console.log('[UPDATE DEBUG] onMount started')
     try {
       const cfg = await api.config.get()
       appConfig.set(cfg)
@@ -70,6 +71,7 @@
       // config non critica, usa defaults
     }
     const info = await api.license.checkLicense()
+    console.log('[UPDATE DEBUG] license info:', info)
     licenseInfo.set(info)
     licenseValid.set(info.valid)
     if (info.valid) {
