@@ -14,6 +14,7 @@ pub struct UpdateInfo {
 #[tauri::command]
 pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
     let config = read_config(&app)?;
+    eprintln!("[UPDATE DEBUG] endpoint: {}", config.update_endpoint);
     let url = config.update_endpoint.parse::<url::Url>().map_err(|e| e.to_string())?;
     let updater = app.updater_builder()
         .endpoints(vec![url])
@@ -21,6 +22,7 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, S
         .build()
         .map_err(|e| e.to_string())?;
     let update = updater.check().await.map_err(|e| e.to_string())?;
+    eprintln!("[UPDATE DEBUG] check result: {:?}", update.as_ref().map(|u| &u.version));
     Ok(update.map(|u| UpdateInfo {
         version: u.version.clone(),
         notes: u.body.clone().unwrap_or_default(),

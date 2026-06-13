@@ -76,10 +76,12 @@
       await loadAll()
       try {
         currentVersion = await getVersion()
+        console.log('[UPDATE DEBUG] currentVersion:', currentVersion)
         const update = await invoke<{ version: string; notes: string; date: string } | null>('check_update')
+        console.log('[UPDATE DEBUG] check_update result:', update)
         if (update) updateInfo = update
-      } catch {
-        // aggiornamenti non critici: ignora errori di rete
+      } catch (e) {
+        console.error('[UPDATE DEBUG] errore:', e)
       }
     }
   })
