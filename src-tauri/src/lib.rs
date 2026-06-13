@@ -109,6 +109,8 @@ pub fn run() {
             commands::ricambi::carico_rapido_ricambio,
             commands::fornitori::get_all_fornitori,
             commands::fornitori::create_fornitore,
+            commands::fornitori::update_fornitore,
+            commands::fornitori::delete_fornitore,
             commands::documenti::get_all_documenti,
             commands::documenti::get_documenti_paginated,
             commands::documenti::get_documento,

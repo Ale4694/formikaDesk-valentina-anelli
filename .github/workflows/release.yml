@@ -122,26 +122,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          echo "=== cwd: $(pwd) ==="
-          echo "=== bundle dirs found ==="
-          find . -path "*/bundle*" -name "*.AppImage" \
-                 -o -path "*/bundle*" -name "*.AppImage.tar.gz" \
-                 -o -path "*/bundle*" -name "*.nsis.zip" \
-                 -o -path "*/bundle*" -name "*.exe" \
-                 2>/dev/null | sort | head -20 || true
-          echo "=== uploading ==="
-          find . -type f \( \
+          # tauri-action only uploads the main installers, not the updater bundles.
+          # We upload them manually so publish-latest-json can read the signatures.
+          find src-tauri/target -type f \( \
             -name "*.AppImage.tar.gz"     -o -name "*.AppImage.tar.gz.sig" \
             -o -name "*.app.tar.gz"       -o -name "*.app.tar.gz.sig" \
             -o -name "*.nsis.zip"         -o -name "*.nsis.zip.sig" \
-          \) 2>/dev/null | while IFS= read -r f; do
+          \) | while IFS= read -r f; do
             name=$(basename "$f" | tr ' ' '.')
             tmpfile="/tmp/${name}"
             cp "$f" "$tmpfile"
             echo "Uploading: $name"
             gh release upload "${TAG}" "$tmpfile" --clobber
           done
-          echo "=== done ==="
 
   publish-latest-json:
     needs: release

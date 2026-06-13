@@ -39,6 +39,8 @@ export const api = {
   fornitori: {
     getAll: () => call<Fornitore[]>('get_all_fornitori'),
     create: (fornitore: NuovoFornitore) => call<Fornitore>('create_fornitore', { fornitore }),
+    update: (id: number, fornitore: NuovoFornitore) => call<Fornitore>('update_fornitore', { id, fornitore }),
+    delete: (id: number) => call<void>('delete_fornitore', { id }),
   },
   ricambi: {
     getAll: () => call<Ricambio[]>('get_all_ricambi'),
