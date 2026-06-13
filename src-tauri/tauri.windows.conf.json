@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "resources": [
+      "bin-windows/poppler/",
+      "bin-windows/tesseract/"
+    ]
+  }
+}

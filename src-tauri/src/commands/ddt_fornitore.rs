@@ -4,7 +4,7 @@ use chrono::Local;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
 // ── Strutture pubbliche ───────────────────────────────────────────────────────
@@ -171,8 +171,30 @@ fn rileva_fornitore_da_header(testo: &str) -> (Option<String>, Option<String>) {
 
 // ── Fallback OCR (pdftoppm + tesseract) per PDF basati su immagini ──────────
 
-fn extract_text_ocr(pdf_path: &str) -> Result<String, AppError> {
+// Risolve i path dei binari: su Windows usa quelli bundlati nella resource_dir se presenti,
+// altrimenti (o su Linux/Mac) si affida ai binari di sistema sul PATH.
+fn resolve_ocr_tools(_resource_dir: Option<&std::path::Path>) -> (String, String, Option<std::path::PathBuf>) {
+    #[cfg(target_os = "windows")]
+    if let Some(res) = _resource_dir {
+        let pdftoppm_path = res.join("bin-windows/poppler/pdftoppm.exe");
+        let tesseract_path = res.join("bin-windows/tesseract/tesseract.exe");
+        let tessdata_path  = res.join("bin-windows/tesseract/tessdata");
+        if pdftoppm_path.exists() && tesseract_path.exists() {
+            return (
+                pdftoppm_path.to_string_lossy().into_owned(),
+                tesseract_path.to_string_lossy().into_owned(),
+                Some(tessdata_path),
+            );
+        }
+    }
+    // Fallback: binari di sistema
+    ("pdftoppm".to_owned(), "tesseract".to_owned(), None)
+}
+
+fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> Result<String, AppError> {
     use std::process::Command;
+
+    let (pdftoppm_bin, tesseract_bin, tessdata_dir) = resolve_ocr_tools(resource_dir);
 
     let tmp_prefix = std::env::temp_dir().join(format!(
         "ddt_ocr_{}_{}",
@@ -185,7 +207,7 @@ fn extract_text_ocr(pdf_path: &str) -> Result<String, AppError> {
     let prefix_str = tmp_prefix.to_string_lossy().to_string();
 
     // Renderizza ogni pagina come PPM a 200 dpi
-    let pdftoppm = Command::new("pdftoppm")
+    let pdftoppm = Command::new(&pdftoppm_bin)
         .args(["-r", "200", pdf_path, &prefix_str])
         .output()
         .map_err(|_| AppError::Internal(
@@ -229,22 +251,30 @@ fn extract_text_ocr(pdf_path: &str) -> Result<String, AppError> {
 
         // Prova ita+eng; se la lingua italiana non è installata tesseract esce con
         // stato non-zero e stdout vuoto — in quel caso riprova con eng soltanto.
-        let tess = match Command::new("tesseract")
-            .args([&ppm_str, "stdout", "-l", "ita+eng"])
-            .output()
-        {
+        // Se tessdata_dir è Some, imposta TESSDATA_PREFIX per i binari bundlati su Windows.
+        let mut cmd_ita = Command::new(&tesseract_bin);
+        cmd_ita.args([&ppm_str, "stdout", "-l", "ita+eng"]);
+        if let Some(ref td) = tessdata_dir {
+            cmd_ita.env("TESSDATA_PREFIX", td);
+        }
+
+        let tess = match cmd_ita.output() {
             Err(_) => return Err(AppError::Internal(
                 "tesseract non trovato. Installa tesseract-ocr per il supporto OCR su PDF immagine."
                     .into(),
             )),
             Ok(o) if o.status.success() && !o.stdout.is_empty() => o,
-            Ok(_) => Command::new("tesseract")
-                .args([&ppm_str, "stdout", "-l", "eng"])
-                .output()
-                .map_err(|_| AppError::Internal(
+            Ok(_) => {
+                let mut cmd_eng = Command::new(&tesseract_bin);
+                cmd_eng.args([&ppm_str, "stdout", "-l", "eng"]);
+                if let Some(ref td) = tessdata_dir {
+                    cmd_eng.env("TESSDATA_PREFIX", td);
+                }
+                cmd_eng.output().map_err(|_| AppError::Internal(
                     "tesseract non trovato. Installa tesseract-ocr per il supporto OCR su PDF immagine."
                         .into(),
-                ))?,
+                ))?
+            }
         };
 
         if !tess.stdout.is_empty() {
@@ -278,14 +308,16 @@ pub async fn seleziona_pdf_ddt(app: tauri::AppHandle) -> Result<Option<String>, 
 pub async fn parse_ddt_fornitore_pdf(
     pdf_path: String,
     state: State<'_, AppState>,
+    app: tauri::AppHandle,
 ) -> Result<ParseDdtResult, AppError> {
     let bytes = std::fs::read(&pdf_path)
         .map_err(|e| AppError::Internal(format!("Impossibile leggere il PDF: {e}")))?;
 
+    let resource_dir = app.path().resource_dir().ok();
     // Prova prima l'estrazione nativa; se il PDF è basato su immagini (testo vuoto) usa OCR
     let testo = match pdf_extract::extract_text_from_mem(&bytes) {
         Ok(t) if !t.trim().is_empty() => t,
-        _ => extract_text_ocr(&pdf_path)?,
+        _ => extract_text_ocr(&pdf_path, resource_dir.as_deref())?,
     };
 
     // Parsing righe articolo
