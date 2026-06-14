@@ -12,42 +12,18 @@ pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<Release
     use crate::commands::config::read_config;
     let config = read_config(&app).map_err(|e| e.to_string())?;
 
-    let api_url = config
-        .update_endpoint
-        .replace("releases/latest/download/latest.json", "releases/latest");
-
     let client = reqwest::Client::new();
     let resp = client
-        .get(&api_url)
+        .get(&config.update_endpoint)
         .header("User-Agent", "autoparts-gestionale")
         .send()
         .await
         .map_err(|e| e.to_string())?;
 
-    let release: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let latest: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
 
-    let tag = release["tag_name"].as_str().unwrap_or("").to_string();
-    let notes = release["body"].as_str().unwrap_or("").to_string();
-
-    let assets = release["assets"].as_array().ok_or("no assets")?;
-    let exe_asset = assets
-        .iter()
-        .find(|a| a["name"].as_str().unwrap_or("").ends_with("x64-setup.exe"));
-
-    let download_url = match exe_asset {
-        Some(a) => a["browser_download_url"]
-            .as_str()
-            .unwrap_or("")
-            .to_string(),
-        None => return Ok(None),
-    };
-
-    let remote_version = tag
-        .trim_start_matches('v')
-        .split('-')
-        .next()
-        .unwrap_or("")
-        .to_string();
+    let remote_version = latest["version"].as_str().unwrap_or("").to_string();
+    let notes = latest["notes"].as_str().unwrap_or("").to_string();
 
     if remote_version.is_empty() {
         return Ok(None);
@@ -64,15 +40,19 @@ pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<Release
         )
     };
 
-    if parse_ver(&remote_version) > parse_ver(&current) {
-        Ok(Some(ReleaseInfo {
-            version: remote_version,
-            download_url,
-            notes,
-        }))
-    } else {
-        Ok(None)
+    if parse_ver(&remote_version) <= parse_ver(&current) {
+        return Ok(None);
     }
+
+    let base = config.update_endpoint.replace("latest.json", "");
+    let exe_name = format!("AutoParts.Gestionale_{}_x64-setup.exe", remote_version);
+    let download_url = format!("{}{}", base, exe_name);
+
+    Ok(Some(ReleaseInfo {
+        version: remote_version,
+        download_url,
+        notes,
+    }))
 }
 
 #[command]
