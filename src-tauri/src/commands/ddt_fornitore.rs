@@ -210,14 +210,16 @@ fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> R
     let pdftoppm = Command::new(&pdftoppm_bin)
         .args(["-r", "200", pdf_path, &prefix_str])
         .output()
-        .map_err(|_| AppError::Internal(
-            "pdftoppm non trovato. Installa poppler-utils per il supporto OCR su PDF immagine."
-                .into(),
-        ))?;
+        .map_err(|e| AppError::Internal(format!(
+            "pdftoppm non avviato (bin={:?}): {}",
+            pdftoppm_bin, e
+        )))?;
 
     if !pdftoppm.status.success() {
         return Err(AppError::Internal(format!(
-            "pdftoppm fallito: {}",
+            "pdftoppm fallito (exit {}): stdout={} stderr={}",
+            pdftoppm.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&pdftoppm.stdout),
             String::from_utf8_lossy(&pdftoppm.stderr)
         )));
     }
