@@ -27,7 +27,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // Percorso legacy (AppData) — usato solo per licenza e migrazione DB
             let legacy_dir = app
@@ -148,8 +147,8 @@ pub fn run() {
             commands::fattura_pa::genera_fattura_pa,
             commands::config::get_config,
             commands::config::salva_intestazione,
-            commands::update::check_update,
-            commands::update::install_update,
+            commands::update::check_update_custom,
+            commands::update::download_and_install_update,
             commands::ddt_fornitore::seleziona_pdf_ddt,
             commands::ddt_fornitore::parse_ddt_fornitore_pdf,
             commands::ddt_fornitore::importa_ddt_fornitore,

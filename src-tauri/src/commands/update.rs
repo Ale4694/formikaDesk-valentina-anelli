@@ -1,57 +1,104 @@
-use serde::Serialize;
-use tauri::Emitter;
-use tauri_plugin_updater::UpdaterExt;
+use tauri::command;
 
-use super::config::read_config;
-
-#[derive(Serialize)]
-pub struct UpdateInfo {
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ReleaseInfo {
     pub version: String,
+    pub download_url: String,
     pub notes: String,
-    pub date: String,
 }
 
-#[tauri::command]
-pub async fn check_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let config = read_config(&app)?;
-    let url = config.update_endpoint.parse::<url::Url>().map_err(|e| e.to_string())?;
-    let updater = app.updater_builder()
-        .endpoints(vec![url])
-        .map_err(|e| e.to_string())?
-        .build()
-        .map_err(|e| e.to_string())?;
-    let update = updater.check().await.map_err(|e| e.to_string())?;
-    Ok(update.map(|u| UpdateInfo {
-        version: u.version.clone(),
-        notes: u.body.clone().unwrap_or_default(),
-        date: u.date.map(|d| d.to_string()).unwrap_or_default(),
-    }))
-}
+#[command]
+pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<ReleaseInfo>, String> {
+    use crate::commands::config::read_config;
+    let config = read_config(&app).map_err(|e| e.to_string())?;
 
-#[tauri::command]
-pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
-    let config = read_config(&app)?;
-    let url = config.update_endpoint.parse::<url::Url>().map_err(|e| e.to_string())?;
-    let updater = app.updater_builder()
-        .endpoints(vec![url])
-        .map_err(|e| e.to_string())?
-        .build()
+    let api_url = config
+        .update_endpoint
+        .replace("releases/latest/download/latest.json", "releases/latest");
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&api_url)
+        .header("User-Agent", "autoparts-gestionale")
+        .send()
+        .await
         .map_err(|e| e.to_string())?;
-    if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
-        let app_clone = app.clone();
-        update
-            .download_and_install(
-                move |downloaded, total| {
-                    if let Some(total) = total {
-                        let progress = (downloaded as f64 / total as f64 * 100.0) as u32;
-                        let _ = app_clone.emit("update-progress", progress);
-                    }
-                },
-                || {},
-            )
-            .await
-            .map_err(|e| e.to_string())?;
-        app.restart();
+
+    let release: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    let tag = release["tag_name"].as_str().unwrap_or("").to_string();
+    let notes = release["body"].as_str().unwrap_or("").to_string();
+
+    let assets = release["assets"].as_array().ok_or("no assets")?;
+    let exe_asset = assets
+        .iter()
+        .find(|a| a["name"].as_str().unwrap_or("").ends_with("x64-setup.exe"));
+
+    let download_url = match exe_asset {
+        Some(a) => a["browser_download_url"]
+            .as_str()
+            .unwrap_or("")
+            .to_string(),
+        None => return Ok(None),
+    };
+
+    let remote_version = tag
+        .trim_start_matches('v')
+        .split('-')
+        .next()
+        .unwrap_or("")
+        .to_string();
+
+    if remote_version.is_empty() {
+        return Ok(None);
     }
+
+    let current = app.package_info().version.to_string();
+
+    let parse_ver = |v: &str| -> (u32, u32, u32) {
+        let parts: Vec<u32> = v.split('.').filter_map(|x| x.parse().ok()).collect();
+        (
+            parts.get(0).copied().unwrap_or(0),
+            parts.get(1).copied().unwrap_or(0),
+            parts.get(2).copied().unwrap_or(0),
+        )
+    };
+
+    if parse_ver(&remote_version) > parse_ver(&current) {
+        Ok(Some(ReleaseInfo {
+            version: remote_version,
+            download_url,
+            notes,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+#[command]
+pub async fn download_and_install_update(
+    download_url: String,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    use std::process::Command;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&download_url)
+        .header("User-Agent", "autoparts-gestionale")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+
+    let tmp_path = std::env::temp_dir().join("autoparts-update-setup.exe");
+    std::fs::write(&tmp_path, &bytes).map_err(|e| e.to_string())?;
+
+    Command::new(&tmp_path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+
+    app.exit(0);
     Ok(())
 }

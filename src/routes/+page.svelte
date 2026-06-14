@@ -19,12 +19,10 @@
   import Cassa from '../components/views/Cassa.svelte'
   import StoricoCassa from '../components/views/StoricoCassa.svelte'
   import Impostazioni from '../components/views/Impostazioni.svelte'
-  import UpdateModal from '../components/UpdateModal.svelte'
   import { invoke } from '@tauri-apps/api/core'
-  import { getVersion } from '@tauri-apps/api/app'
 
-  let updateInfo: { version: string; notes: string; date: string } | null = null
-  let currentVersion = ''
+  let updateInfo: { version: string; download_url: string; notes: string } | null = null
+  let updateDownloading = false
 
   async function loadAll() {
     isLoading.set(true)
@@ -62,6 +60,17 @@
     }
   }
 
+  async function installUpdate() {
+    if (!updateInfo || updateDownloading) return
+    updateDownloading = true
+    try {
+      await invoke('download_and_install_update', { downloadUrl: updateInfo.download_url })
+    } catch (e: any) {
+      setError('Aggiornamento fallito: ' + (e?.message ?? String(e)))
+      updateDownloading = false
+    }
+  }
+
   onMount(async () => {
     try {
       const cfg = await api.config.get()
@@ -75,8 +84,7 @@
     if (info.valid) {
       await loadAll()
       try {
-        currentVersion = await getVersion()
-        const update = await invoke<{ version: string; notes: string; date: string } | null>('check_update')
+        const update = await invoke<{ version: string; download_url: string; notes: string } | null>('check_update_custom')
         if (update) updateInfo = update
       } catch {
         // aggiornamenti non critici: ignora errori di rete
@@ -95,6 +103,26 @@
   <LicenseGate licenseInfoData={$licenseInfo} on:activated={onLicenseActivated} />
 {:else}
   <div class="flex flex-col h-screen overflow-hidden bg-gray-950">
+    {#if updateInfo}
+      <div class="shrink-0 bg-green-800 border-b border-green-600 text-green-100 px-4 py-2 text-xs font-medium flex items-center justify-center gap-3">
+        {#if updateDownloading}
+          <div class="w-3 h-3 border border-green-300 border-t-transparent rounded-full animate-spin"></div>
+          <span>Download in corso...</span>
+        {:else}
+          <button
+            class="hover:underline flex items-center gap-1"
+            on:click={installUpdate}
+          >
+            🆕 Aggiornamento disponibile: v{updateInfo.version} — Clicca per installare
+          </button>
+          <button
+            class="ml-4 text-green-400 hover:text-green-200 font-bold"
+            on:click={() => updateInfo = null}
+            aria-label="Ignora aggiornamento"
+          >✕</button>
+        {/if}
+      </div>
+    {/if}
     {#if $licenseInfo?.tipo === 'demo' && $licenseInfo.valid}
       <div class="shrink-0 bg-yellow-900 border-b border-yellow-700 text-yellow-200 px-4 py-1.5 text-xs text-center font-medium">
         Licenza demo — scade il {$licenseInfo.scadenza} ({$licenseInfo.giorni_rimanenti} {$licenseInfo.giorni_rimanenti === 1 ? 'giorno rimanente' : 'giorni rimanenti'})
@@ -157,7 +185,4 @@
 
   <PrintOverlay />
   <SearchModal />
-  {#if updateInfo}
-    <UpdateModal {updateInfo} {currentVersion} on:dismiss={() => (updateInfo = null)} />
-  {/if}
 {/if}
