@@ -36,12 +36,27 @@ pub fn read_config(app: &tauri::AppHandle) -> Result<AppConfig, String> {
             }
         }
     }
-    // Fallback al config bundled nell'app
-    let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
-    let config_path = resource_dir.join("config.json");
-    let content = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("Impossibile leggere config.json: {}", e))?;
-    serde_json::from_str(&content).map_err(|e| format!("Config non valida: {}", e))
+    // Candidati per il config bundled (resource_dir non sempre corretto su Windows)
+    let candidates: Vec<std::path::PathBuf> = [
+        app.path().resource_dir().ok().map(|d| d.join("config.json")),
+        std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("config.json"))),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    for path in &candidates {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+                return Ok(config);
+            }
+        }
+    }
+
+    Err(format!(
+        "config.json non trovato. Percorsi tentati: {}",
+        candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")
+    ))
 }
 
 #[tauri::command]
