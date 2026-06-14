@@ -171,20 +171,31 @@ fn rileva_fornitore_da_header(testo: &str) -> (Option<String>, Option<String>) {
 
 // ── Fallback OCR (pdftoppm + tesseract) per PDF basati su immagini ──────────
 
-// Risolve i path dei binari: su Windows usa quelli bundlati nella resource_dir se presenti,
+// Risolve i path dei binari: su Windows prova più candidate paths in ordine,
 // altrimenti (o su Linux/Mac) si affida ai binari di sistema sul PATH.
 fn resolve_ocr_tools(_resource_dir: Option<&std::path::Path>) -> (String, String, Option<std::path::PathBuf>) {
     #[cfg(target_os = "windows")]
-    if let Some(res) = _resource_dir {
-        let pdftoppm_path = res.join("bin-windows/poppler/pdftoppm.exe");
-        let tesseract_path = res.join("bin-windows/tesseract/tesseract.exe");
-        let tessdata_path  = res.join("bin-windows/tesseract/tessdata");
-        if pdftoppm_path.exists() && tesseract_path.exists() {
-            return (
-                pdftoppm_path.to_string_lossy().into_owned(),
-                tesseract_path.to_string_lossy().into_owned(),
-                Some(tessdata_path),
-            );
+    {
+        let candidates = [
+            // 1. resource_dir (Tauri bundle resources)
+            _resource_dir.map(|r| r.join("bin-windows")),
+            // 2. accanto all'exe (AppData\Local\AutoParts Gestionale\)
+            std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("bin-windows"))),
+            // 3. un livello sopra l'exe
+            std::env::current_exe().ok().and_then(|e| e.parent().and_then(|p| p.parent()).map(|p| p.join("bin-windows"))),
+        ];
+        for base in candidates.iter().flatten() {
+            let pdftoppm = base.join("poppler/pdftoppm.exe");
+            let tesseract = base.join("tesseract/tesseract.exe");
+            eprintln!("[OCR DEBUG] candidato: {:?} exists={}", base, pdftoppm.exists());
+            if pdftoppm.exists() && tesseract.exists() {
+                let tessdata = base.join("tesseract/tessdata");
+                return (
+                    pdftoppm.to_string_lossy().into_owned(),
+                    tesseract.to_string_lossy().into_owned(),
+                    Some(tessdata),
+                );
+            }
         }
     }
     // Fallback: binari di sistema
@@ -254,6 +265,11 @@ fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> R
         // Prova ita+eng; se la lingua italiana non è installata tesseract esce con
         // stato non-zero e stdout vuoto — in quel caso riprova con eng soltanto.
         // Se tessdata_dir è Some, imposta TESSDATA_PREFIX per i binari bundlati su Windows.
+        if let Some(ref td) = tessdata_dir {
+            eprintln!("[TESS DEBUG] TESSDATA_PREFIX: {:?}", td);
+            eprintln!("[TESS DEBUG] eng.traineddata exists: {}", td.join("eng.traineddata").exists());
+        }
+
         let mut cmd_ita = Command::new(&tesseract_bin);
         cmd_ita.args([&ppm_str, "stdout", "-l", "ita+eng"]);
         if let Some(ref td) = tessdata_dir {
@@ -279,6 +295,18 @@ fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> R
             }
         };
 
+        eprintln!("[TESS DEBUG] stdout len: {}", tess.stdout.len());
+        eprintln!("[TESS DEBUG] stderr: {}", String::from_utf8_lossy(&tess.stderr));
+        eprintln!("[TESS DEBUG] status: {}", tess.status);
+
+        let debug_content = format!(
+            "pdftoppm ok\ntesseract stdout len: {}\ntesseract stderr: {}\ntesseract status: {}",
+            tess.stdout.len(),
+            String::from_utf8_lossy(&tess.stderr),
+            tess.status
+        );
+        let _ = std::fs::write(std::env::temp_dir().join("ddt_ocr_debug.txt"), debug_content);
+
         if !tess.stdout.is_empty() {
             full_text.push_str(&String::from_utf8_lossy(&tess.stdout));
             full_text.push('\n');
@@ -287,9 +315,7 @@ fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> R
         let _ = std::fs::remove_file(ppm);
     }
 
-    let debug_path = std::env::temp_dir().join("ddt_ocr_debug.txt");
-    let _ = std::fs::write(&debug_path, &full_text);
-    eprintln!("[OCR DEBUG] testo salvato in {:?}, lunghezza: {} chars", debug_path, full_text.len());
+    eprintln!("[OCR DEBUG] testo finale lunghezza: {} chars", full_text.len());
 
     Ok(full_text)
 }
