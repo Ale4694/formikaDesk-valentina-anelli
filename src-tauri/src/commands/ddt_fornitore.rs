@@ -184,12 +184,25 @@ fn resolve_ocr_tools(_resource_dir: Option<&std::path::Path>) -> (String, String
             // 3. un livello sopra l'exe
             std::env::current_exe().ok().and_then(|e| e.parent().and_then(|p| p.parent()).map(|p| p.join("bin-windows"))),
         ];
+        // Rimuove il prefisso \\?\ che canonicalize aggiunge su Windows e che
+        // né tesseract né pdftoppm gestiscono correttamente come argomento/env.
+        let normalize = |p: std::path::PathBuf| -> std::path::PathBuf {
+            let canonical = std::fs::canonicalize(&p).unwrap_or(p);
+            let s = canonical.to_string_lossy().to_string();
+            std::path::PathBuf::from(s.strip_prefix(r"\\?\").unwrap_or(&s).to_string())
+        };
+
         for base in candidates.iter().flatten() {
-            let pdftoppm = base.join("poppler/pdftoppm.exe");
-            let tesseract = base.join("tesseract/tesseract.exe");
+            let pdftoppm = base.join("poppler").join("pdftoppm.exe");
+            let tesseract = base.join("tesseract").join("tesseract.exe");
             eprintln!("[OCR DEBUG] candidato: {:?} exists={}", base, pdftoppm.exists());
             if pdftoppm.exists() && tesseract.exists() {
-                let tessdata = base.join("tesseract/tessdata");
+                let tessdata = normalize(base.join("tesseract").join("tessdata"));
+                let pdftoppm = normalize(pdftoppm);
+                let tesseract = normalize(tesseract);
+                eprintln!("[OCR DEBUG] usando: pdftoppm={:?}", pdftoppm);
+                eprintln!("[OCR DEBUG] usando: tesseract={:?}", tesseract);
+                eprintln!("[OCR DEBUG] usando: tessdata={:?}", tessdata);
                 return (
                     pdftoppm.to_string_lossy().into_owned(),
                     tesseract.to_string_lossy().into_owned(),
