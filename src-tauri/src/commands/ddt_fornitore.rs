@@ -195,14 +195,10 @@ fn resolve_ocr_tools(_resource_dir: Option<&std::path::Path>) -> (String, String
         for base in candidates.iter().flatten() {
             let pdftoppm = base.join("poppler").join("pdftoppm.exe");
             let tesseract = base.join("tesseract").join("tesseract.exe");
-            eprintln!("[OCR DEBUG] candidato: {:?} exists={}", base, pdftoppm.exists());
             if pdftoppm.exists() && tesseract.exists() {
                 let tessdata = normalize(base.join("tesseract").join("tessdata"));
                 let pdftoppm = normalize(pdftoppm);
                 let tesseract = normalize(tesseract);
-                eprintln!("[OCR DEBUG] usando: pdftoppm={:?}", pdftoppm);
-                eprintln!("[OCR DEBUG] usando: tesseract={:?}", tesseract);
-                eprintln!("[OCR DEBUG] usando: tessdata={:?}", tessdata);
                 return (
                     pdftoppm.to_string_lossy().into_owned(),
                     tesseract.to_string_lossy().into_owned(),
@@ -279,8 +275,6 @@ fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> R
         // stato non-zero e stdout vuoto — in quel caso riprova con eng soltanto.
         // Se tessdata_dir è Some, imposta TESSDATA_PREFIX per i binari bundlati su Windows.
         if let Some(ref td) = tessdata_dir {
-            eprintln!("[TESS DEBUG] TESSDATA_PREFIX: {:?}", td);
-            eprintln!("[TESS DEBUG] eng.traineddata exists: {}", td.join("eng.traineddata").exists());
         }
 
         let mut cmd_ita = Command::new(&tesseract_bin);
@@ -308,17 +302,6 @@ fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> R
             }
         };
 
-        eprintln!("[TESS DEBUG] stdout len: {}", tess.stdout.len());
-        eprintln!("[TESS DEBUG] stderr: {}", String::from_utf8_lossy(&tess.stderr));
-        eprintln!("[TESS DEBUG] status: {}", tess.status);
-
-        let debug_content = format!(
-            "pdftoppm ok\ntesseract stdout len: {}\ntesseract stderr: {}\ntesseract status: {}",
-            tess.stdout.len(),
-            String::from_utf8_lossy(&tess.stderr),
-            tess.status
-        );
-        let _ = std::fs::write(std::env::temp_dir().join("ddt_ocr_debug.txt"), debug_content);
 
         if !tess.stdout.is_empty() {
             full_text.push_str(&String::from_utf8_lossy(&tess.stdout));
@@ -328,7 +311,6 @@ fn extract_text_ocr(pdf_path: &str, resource_dir: Option<&std::path::Path>) -> R
         let _ = std::fs::remove_file(ppm);
     }
 
-    eprintln!("[OCR DEBUG] testo finale lunghezza: {} chars", full_text.len());
 
     Ok(full_text)
 }
@@ -359,14 +341,12 @@ pub async fn parse_ddt_fornitore_pdf(
         .map_err(|e| AppError::Internal(format!("Impossibile leggere il PDF: {e}")))?;
 
     let resource_dir = app.path().resource_dir().ok();
-    eprintln!("[OCR DEBUG] resource_dir: {:?}", resource_dir);
     // Prova prima l'estrazione nativa; se il PDF è basato su immagini (testo vuoto) usa OCR
     let testo = match pdf_extract::extract_text_from_mem(&bytes) {
         Ok(t) if !t.trim().is_empty() => t,
         _ => extract_text_ocr(&pdf_path, resource_dir.as_deref())?,
     };
 
-    eprintln!("[OCR DEBUG] testo finale ({} chars): {}", testo.len(), &testo[..testo.len().min(500)]);
     // Parsing righe articolo
     let mut righe = parse_righe_from_text(&testo);
 
