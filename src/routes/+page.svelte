@@ -84,10 +84,12 @@
     if (info.valid) {
       await loadAll()
       try {
+        console.log('[UPDATE] chiamata check_update_custom...')
         const update = await invoke<{ version: string; download_url: string; notes: string } | null>('check_update_custom')
+        console.log('[UPDATE] risultato:', update)
         if (update) updateInfo = update
-      } catch {
-        // aggiornamenti non critici: ignora errori di rete
+      } catch (e) {
+        console.error('[UPDATE] errore check_update_custom:', e)
       }
     }
   })
