@@ -294,13 +294,6 @@ pub async fn update_documento(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("documento id={id} non trovato")))?;
 
-    if old.stato != "bozza" && old.stato != "confermato" {
-        return Err(AppError::Validation(format!(
-            "Solo documenti in stato bozza o confermato sono modificabili (stato attuale: {})",
-            old.stato
-        )));
-    }
-
     let tipi_scarico = ["fattura", "ddt", "vendita_banco", "buono", "fattura_differita"];
     let tipi_carico  = ["ddt_fornitore"];
 
@@ -513,13 +506,6 @@ pub async fn delete_documento(
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("documento id={id} non trovato")))?;
-
-    if doc.stato != "bozza" && doc.stato != "confermato" {
-        return Err(AppError::Validation(format!(
-            "Solo documenti in stato bozza o confermato possono essere eliminati (stato: {})",
-            doc.stato
-        )));
-    }
 
     let tipi_scarico = ["fattura", "ddt", "vendita_banco", "buono", "fattura_differita"];
     let tipi_carico  = ["ddt_fornitore"];

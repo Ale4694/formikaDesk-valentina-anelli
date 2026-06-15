@@ -349,8 +349,7 @@
                 {/if}
                 <button
                   class="btn-secondary text-xs px-2 py-1 flex items-center gap-1"
-                  title={d.stato === 'pagato' || d.stato === 'annullato' ? 'Non modificabile' : 'Modifica documento'}
-                  disabled={d.stato === 'pagato' || d.stato === 'annullato'}
+                  title="Modifica documento"
                   on:click={() => modifica(d)}
                 >
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,9 +359,8 @@
                   Modifica
                 </button>
                 <button
-                  class="btn-secondary text-xs px-2 py-1 flex items-center gap-1 text-red-400 hover:text-red-300 disabled:text-gray-600"
-                  title={d.stato === 'pagato' || d.stato === 'annullato' ? 'Non eliminabile' : 'Elimina documento'}
-                  disabled={d.stato === 'pagato' || d.stato === 'annullato'}
+                  class="btn-secondary text-xs px-2 py-1 flex items-center gap-1 text-red-400 hover:text-red-300"
+                  title="Elimina documento"
                   on:click={() => apriElimina(d)}
                 >
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
