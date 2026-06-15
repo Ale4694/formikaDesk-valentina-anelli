@@ -455,3 +455,8 @@ export interface RigaDdtImport {
   ricambio_id: number | null
   carica_magazzino: boolean
 }
+
+export interface ImportaDdtResult {
+  doc_id: number
+  articoli_creati: number
+}

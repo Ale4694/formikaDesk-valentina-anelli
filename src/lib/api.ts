@@ -11,7 +11,7 @@ import type {
   ScontrinoCompleto, NuovoScontrino,
   Impostazioni, LicenseInfo, AppConfig, ConfigIntestazione,
   PaginatedResult, ArticoloStorico,
-  RigaDdtParsed, RigaDdtImport, ParseDdtResult,
+  RigaDdtParsed, RigaDdtImport, ParseDdtResult, ImportaDdtResult,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -139,7 +139,7 @@ export const api = {
       data: string,
       righe: RigaDdtImport[],
       pdfPathSorgente: string,
-    ) => call<number>('importa_ddt_fornitore', { fornitoreId, numero, data, righe, pdfPathSorgente }),
+    ) => call<ImportaDdtResult>('importa_ddt_fornitore', { fornitoreId, numero, data, righe, pdfPathSorgente }),
     apriPdf: (documentoId: number) =>
       call<void>('apri_pdf_allegato', { documentoId }),
     creaFornitoreRapido: (ragioneSociale: string, partitaIva: string | null) =>

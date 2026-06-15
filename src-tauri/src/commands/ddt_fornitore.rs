@@ -38,6 +38,12 @@ pub struct RigaDdtImport {
     pub carica_magazzino: bool,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ImportaDdtResult {
+    pub doc_id: i64,
+    pub articoli_creati: u32,
+}
+
 // ── Strutture interne DB ──────────────────────────────────────────────────────
 
 #[derive(sqlx::FromRow)]
@@ -446,7 +452,7 @@ pub async fn importa_ddt_fornitore(
     righe: Vec<RigaDdtImport>,
     pdf_path_sorgente: String,
     state: State<'_, AppState>,
-) -> Result<i64, AppError> {
+) -> Result<ImportaDdtResult, AppError> {
     if numero.trim().is_empty() {
         return Err(AppError::Validation("numero DDT obbligatorio".into()));
     }
@@ -483,6 +489,7 @@ pub async fn importa_ddt_fornitore(
     .last_insert_rowid();
 
     let mut totale_imponibile = 0.0f64;
+    let mut articoli_creati: u32 = 0;
 
     for (i, riga) in righe.iter().enumerate() {
         let prezzo_unitario: f64 = if let Some(rid) = riga.ricambio_id {
@@ -517,9 +524,8 @@ pub async fn importa_ddt_fornitore(
         .execute(&mut *tx)
         .await?;
 
-        // Aggiorna giacenza solo se la riga ha un ricambio abbinato E carica_magazzino=true
-        if let Some(rid) = riga.ricambio_id {
-            if riga.carica_magazzino {
+        if riga.carica_magazzino {
+            let effective_rid = if let Some(rid) = riga.ricambio_id {
                 sqlx::query(
                     "UPDATE ricambi SET giacenza=giacenza+?, updated_at=datetime('now') WHERE id=?",
                 )
@@ -527,18 +533,46 @@ pub async fn importa_ddt_fornitore(
                 .bind(rid)
                 .execute(&mut *tx)
                 .await?;
+                rid
+            } else {
+                let new_rid = sqlx::query(
+                    "INSERT INTO ricambi \
+                     (codice_interno, codice_oem, descrizione, giacenza, prezzo_acquisto, \
+                      prezzo_vendita, iva_percentuale, updated_at) \
+                     VALUES (?, ?, ?, ?, 0, 0, 22, datetime('now'))",
+                )
+                .bind(&riga.codice_fornitore)
+                .bind(&riga.codice_fornitore)
+                .bind(&riga.descrizione)
+                .bind(riga.quantita as i64)
+                .execute(&mut *tx)
+                .await?
+                .last_insert_rowid();
 
                 sqlx::query(
-                    "INSERT INTO movimenti_magazzino \
-                     (ricambio_id, tipo_movimento, quantita, documento_id, note)
-                     VALUES (?, 'carico', ?, ?, 'DDT Fornitore')",
+                    "UPDATE righe_documento SET ricambio_id=? \
+                     WHERE documento_id=? AND ordine=?",
                 )
-                .bind(rid)
-                .bind(riga.quantita)
+                .bind(new_rid)
                 .bind(doc_id)
+                .bind(i as i64)
                 .execute(&mut *tx)
                 .await?;
-            }
+
+                articoli_creati += 1;
+                new_rid
+            };
+
+            sqlx::query(
+                "INSERT INTO movimenti_magazzino \
+                 (ricambio_id, tipo_movimento, quantita, documento_id, note) \
+                 VALUES (?, 'carico', ?, ?, 'DDT Fornitore')",
+            )
+            .bind(effective_rid)
+            .bind(riga.quantita)
+            .bind(doc_id)
+            .execute(&mut *tx)
+            .await?;
         }
     }
 
@@ -552,7 +586,7 @@ pub async fn importa_ddt_fornitore(
     .await?;
 
     tx.commit().await?;
-    Ok(doc_id)
+    Ok(ImportaDdtResult { doc_id, articoli_creati })
 }
 
 #[tauri::command]

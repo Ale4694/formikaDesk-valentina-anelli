@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fornitori, ricambi, setError, setSuccess, currentView } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { Fornitore, RigaDdtParsed, RigaDdtImport } from '../../lib/types'
+  import type { Fornitore, RigaDdtParsed, RigaDdtImport, ImportaDdtResult } from '../../lib/types'
 
   type RigaUI = RigaDdtParsed & {
     includi: boolean
@@ -34,11 +34,12 @@
 
   // Fase completata
   let documentoCreato: number | null = null
-  let nCaricati = 0
+  let nAggiornati = 0
+  let nCreati = 0
 
   $: righeInclude = righe.filter(r => r.includi)
   $: righeMatchate = righeInclude.filter(r => r.ricambio_id_edit !== null)
-  $: righeDaCaricare = righeInclude.filter(r => r.carica_magazzino && r.ricambio_id_edit !== null)
+  $: righeDaCaricare = righeInclude.filter(r => r.carica_magazzino)
   $: puoImportare = fornitoreId > 0 && numeroDdt.trim().length > 0 && righeInclude.length > 0
 
   // ── Typeahead fornitore ──────────────────────────────────────────────────────
@@ -116,7 +117,7 @@
         ...r,
         includi: true,
         ricambio_id_edit: r.ricambio_id,
-        carica_magazzino: r.ricambio_id !== null,
+        carica_magazzino: true,
       }))
       searchQueries = Array(righe.length).fill('')
       searchOpen = Array(righe.length).fill(false)
@@ -162,10 +163,10 @@
         um: r.um,
         quantita: r.quantita,
         ricambio_id: r.ricambio_id_edit,
-        carica_magazzino: r.carica_magazzino && r.ricambio_id_edit !== null,
+        carica_magazzino: r.carica_magazzino,
       }))
 
-      const docId = await api.ddtFornitore.importa(
+      const result: ImportaDdtResult = await api.ddtFornitore.importa(
         fornitoreId,
         numeroDdt.trim(),
         dataDdt,
@@ -173,10 +174,15 @@
         pdfPath,
       )
 
-      documentoCreato = docId
-      nCaricati = righeDaCaricare.length
+      documentoCreato = result.doc_id
+      nAggiornati = righeDaCaricare.filter(r => r.ricambio_id_edit !== null).length
+      nCreati = result.articoli_creati
       fase = 'completato'
-      setSuccess(`DDT Fornitore ${numeroDdt} importato — ${nCaricati} articoli caricati in magazzino`)
+      const msgMag = [
+        nAggiornati > 0 ? `${nAggiornati} aggiornati` : '',
+        nCreati > 0 ? `${nCreati} nuovi creati` : '',
+      ].filter(Boolean).join(', ')
+      setSuccess(`DDT Fornitore ${numeroDdt} importato${msgMag ? ` — ${msgMag} in magazzino` : ''}`)
     } catch (e: any) {
       setError(e?.message ?? 'Errore importazione DDT')
     } finally {
@@ -237,7 +243,8 @@
     showBannerCreaFornitore = false
     ragioneSocialeNuova = ''
     documentoCreato = null
-    nCaricati = 0
+    nAggiornati = 0
+    nCreati = 0
   }
 </script>
 
@@ -432,17 +439,13 @@
                 <input type="checkbox" bind:checked={riga.includi} class="w-4 h-4 accent-blue-500" />
               </td>
               <td class="px-3 py-2 text-center">
-                {#if riga.ricambio_id_edit !== null}
-                  <input
-                    type="checkbox"
-                    bind:checked={riga.carica_magazzino}
-                    disabled={!riga.includi}
-                    class="w-4 h-4 accent-green-500 disabled:opacity-40"
-                    title="Aggiungi a magazzino"
-                  />
-                {:else}
-                  <span class="text-gray-600 text-xs" title="Nessun articolo abbinato">—</span>
-                {/if}
+                <input
+                  type="checkbox"
+                  bind:checked={riga.carica_magazzino}
+                  disabled={!riga.includi}
+                  class="w-4 h-4 disabled:opacity-40 {riga.ricambio_id_edit !== null ? 'accent-green-500' : 'accent-orange-400'}"
+                  title={riga.ricambio_id_edit !== null ? 'Aggiungi a magazzino' : 'Crea nuovo articolo in magazzino'}
+                />
               </td>
               <td class="px-3 py-2 text-gray-300 font-mono text-xs">{riga.codice_fornitore}</td>
               <td class="px-3 py-2 text-gray-200 text-xs max-w-xs truncate" title={riga.descrizione}>
@@ -533,8 +536,21 @@
       <h2 class="text-lg font-semibold text-white">DDT importato</h2>
       <p class="text-gray-400 text-sm">
         DDT <span class="text-white font-medium">{numeroDdt}</span> creato.
-        {nCaricati} articol{nCaricati === 1 ? 'o caricato' : 'i caricati'} in magazzino.
       </p>
+      {#if nAggiornati > 0 || nCreati > 0}
+        <div class="text-sm space-y-1">
+          {#if nAggiornati > 0}
+            <p class="text-green-400">
+              {nAggiornati} articol{nAggiornati === 1 ? 'o aggiornato' : 'i aggiornati'} in magazzino
+            </p>
+          {/if}
+          {#if nCreati > 0}
+            <p class="text-orange-400">
+              {nCreati} articol{nCreati === 1 ? 'o nuovo creato' : 'i nuovi creati'} in magazzino
+            </p>
+          {/if}
+        </div>
+      {/if}
       <div class="flex gap-3 justify-center pt-2">
         <button on:click={reset} class="btn-secondary">Nuovo import</button>
         <button on:click={() => currentView.set('documenti')} class="btn-primary">
