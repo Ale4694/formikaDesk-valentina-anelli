@@ -23,14 +23,17 @@ pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<Release
         .await
         .map_err(|e| e.to_string())?;
 
-    let latest: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-
-    let remote_version = latest["version"].as_str().unwrap_or("").to_string();
-    let notes = latest["notes"].as_str().unwrap_or("").to_string();
-
-    if remote_version.is_empty() {
+    if !resp.status().is_success() {
         return Ok(None);
     }
+
+    let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    let remote_version = match body["version"].as_str() {
+        Some(v) => v.to_string(),
+        None => return Ok(None),
+    };
+    let notes = body["notes"].as_str().unwrap_or("").to_string();
 
     let current = app.package_info().version.to_string();
 
