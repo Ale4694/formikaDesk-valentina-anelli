@@ -482,17 +482,37 @@ pub async fn importa_ddt_fornitore(
     .await?
     .last_insert_rowid();
 
+    let mut totale_imponibile = 0.0f64;
+
     for (i, riga) in righe.iter().enumerate() {
+        let prezzo_unitario: f64 = if let Some(rid) = riga.ricambio_id {
+            sqlx::query_scalar::<_, f64>(
+                "SELECT prezzo_acquisto FROM ricambi WHERE id=?",
+            )
+            .bind(rid)
+            .fetch_optional(&mut *tx)
+            .await?
+            .unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        let imponibile = (prezzo_unitario * riga.quantita * 100.0).round() / 100.0;
+        totale_imponibile += imponibile;
+
         sqlx::query(
             "INSERT INTO righe_documento (documento_id, ricambio_id, descrizione, quantita,
              prezzo_unitario, sconto_percentuale, iva_percentuale, imponibile, totale_iva,
              totale_riga, ordine)
-             VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, ?)",
+             VALUES (?, ?, ?, ?, ?, 0, 0, ?, 0, ?, ?)",
         )
         .bind(doc_id)
         .bind(riga.ricambio_id)
         .bind(&riga.descrizione)
         .bind(riga.quantita)
+        .bind(prezzo_unitario)
+        .bind(imponibile)
+        .bind(imponibile)
         .bind(i as i64)
         .execute(&mut *tx)
         .await?;
@@ -521,6 +541,15 @@ pub async fn importa_ddt_fornitore(
             }
         }
     }
+
+    sqlx::query(
+        "UPDATE documenti SET totale_imponibile=?, totale_documento=? WHERE id=?",
+    )
+    .bind(totale_imponibile)
+    .bind(totale_imponibile)
+    .bind(doc_id)
+    .execute(&mut *tx)
+    .await?;
 
     tx.commit().await?;
     Ok(doc_id)

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte'
-  import { clienti, documenti, formatCurrency, setError, currentView, editDocumentoId } from '../../lib/stores'
+  import { clienti, ricambi, documenti, formatCurrency, setError, currentView, editDocumentoId } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente } from '../../lib/types'
 
@@ -252,7 +252,9 @@
         }
         righe = docCompleto.righe.map(r => {
           const _id = nextId++
-          righeTA = { ...righeTA, [_id]: { query: r.descrizione, results: [], storicoHits: [], open: false } }
+          const rcMatch = r.ricambio_id != null ? $ricambi.find(rc => rc.id === r.ricambio_id) : null
+          const taQuery = rcMatch ? `${rcMatch.codice_interno} — ${rcMatch.descrizione}` : r.descrizione
+          righeTA = { ...righeTA, [_id]: { query: taQuery, results: [], storicoHits: [], open: false } }
           righeDescTA = { ...righeDescTA, [_id]: { query: r.descrizione, results: [], storicoHits: [], open: false } }
           return {
             _id,
