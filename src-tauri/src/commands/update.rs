@@ -10,11 +10,14 @@ pub struct ReleaseInfo {
 #[command]
 pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<ReleaseInfo>, String> {
     use crate::commands::config::read_config;
-    let config = read_config(&app).map_err(|e| e.to_string())?;
+    let api_url = match read_config(&app) {
+        Ok(config) => config.update_endpoint,
+        Err(_) => "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/latest/download/latest.json".to_string(),
+    };
 
     let client = reqwest::Client::new();
     let resp = client
-        .get(&config.update_endpoint)
+        .get(&api_url)
         .header("User-Agent", "autoparts-gestionale")
         .send()
         .await
@@ -44,7 +47,7 @@ pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<Release
         return Ok(None);
     }
 
-    let base = config.update_endpoint.replace("latest.json", "");
+    let base = api_url.replace("latest.json", "");
     let exe_name = format!("AutoParts.Gestionale_{}_x64-setup.exe", remote_version);
     let download_url = format!("{}{}", base, exe_name);
 
