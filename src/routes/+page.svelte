@@ -27,20 +27,18 @@
   async function loadAll() {
     isLoading.set(true)
     try {
-      const [stats, c, f, r, d] = await Promise.all([
-        api.dashboard.getStats(),
-        api.clienti.getAll(),
-        api.fornitori.getAll(),
-        api.ricambi.getAll(),
-        api.documenti.getAll(),
-      ])
+      const stats = await api.dashboard.getStats()
       dashboardStats.set(stats)
+      const c = await api.clienti.getAll()
       clienti.set(c)
+      const f = await api.fornitori.getAll()
       fornitori.set(f)
+      const r = await api.ricambi.getAll()
       ricambi.set(r)
+      const d = await api.documenti.getAll()
       documenti.set(d)
     } catch (e: any) {
-      setError(e?.message ?? 'Errore caricamento dati')
+      setError('Errore caricamento: ' + (e?.message ?? String(e)))
     } finally {
       isLoading.set(false)
     }
