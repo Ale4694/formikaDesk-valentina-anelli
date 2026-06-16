@@ -53,10 +53,14 @@ pub fn read_config(app: &tauri::AppHandle) -> Result<AppConfig, String> {
         }
     }
 
-    Err(format!(
-        "config.json non trovato. Percorsi tentati: {}",
-        candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")
-    ))
+    Ok(AppConfig {
+        nome_attivita: String::new(),
+        intestazione: None,
+        tipo: String::new(),
+        update_endpoint: "https://raw.githubusercontent.com/Ale4694/formikaDesk-valentina-anelli/valentina-anelli/latest.json".to_string(),
+        moduli: Vec::new(),
+        vocabolario: HashMap::new(),
+    })
 }
 
 #[tauri::command]
