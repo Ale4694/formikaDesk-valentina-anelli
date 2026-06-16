@@ -1,1 +1,0 @@
-ALTER TABLE clienti ADD COLUMN codice INTEGER;
