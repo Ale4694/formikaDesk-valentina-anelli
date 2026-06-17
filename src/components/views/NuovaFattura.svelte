@@ -213,23 +213,18 @@
   ]
 
   function computeNumero(tipo: TipoDocumento): string {
-    const anno = new Date().getFullYear()
-    const minNum = (tipo === 'fattura' || tipo === 'ddt' || tipo === 'fattura_differita') ? 16 : 1
-    if (tipo === 'fattura') {
-      const n = $documenti.filter(d => d.tipo_documento === 'fattura' && d.numero.startsWith(`${anno}/`)).length
-      return `${anno}/${String(Math.max(n + 1, minNum)).padStart(3, '0')}`
+    const minimi: Partial<Record<TipoDocumento, number>> = {
+      fattura:           16,
+      ddt:               16,
+      fattura_differita: 16,
+      preventivo:        6,
+      nota_credito:      1,
+      vendita_banco:     1,
+      buono:             3,
     }
-    const prefissi: Partial<Record<TipoDocumento, string>> = {
-      ddt:               `DDT-${anno}-`,
-      preventivo:        `PREV-${anno}-`,
-      nota_credito:      `NC-${anno}-`,
-      vendita_banco:     `VB-${anno}-`,
-      buono:             `BUO-${anno}-`,
-      fattura_differita: `FAT-${anno}-`,
-    }
-    const pref = prefissi[tipo] ?? `${anno}-`
-    const n = $documenti.filter(d => d.tipo_documento === tipo && d.numero.startsWith(pref)).length
-    return `${pref}${String(Math.max(n + 1, minNum)).padStart(3, '0')}`
+    const min = minimi[tipo] ?? 1
+    const n = $documenti.filter(d => d.tipo_documento === tipo).length
+    return Math.max(n + 1, min).toString()
   }
 
   onMount(async () => {
