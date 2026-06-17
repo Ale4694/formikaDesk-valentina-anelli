@@ -12,7 +12,7 @@ pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<Release
     use crate::commands::config::read_config;
     let api_url = match read_config(&app) {
         Ok(config) => config.update_endpoint,
-        Err(_) => "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/latest/download/latest.json".to_string(),
+        Err(_) => "https://raw.githubusercontent.com/Ale4694/formikaDesk-valentina-anelli/valentina-anelli/latest.json".to_string(),
     };
 
     let client = reqwest::Client::new();
