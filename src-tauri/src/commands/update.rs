@@ -50,9 +50,10 @@ pub async fn check_update_custom(app: tauri::AppHandle) -> Result<Option<Release
         return Ok(None);
     }
 
-    let base = api_url.replace("latest.json", "");
-    let exe_name = format!("AutoParts.Gestionale_{}_x64-setup.exe", remote_version);
-    let download_url = format!("{}{}", base, exe_name);
+    let download_url = match body["download_url"].as_str() {
+        Some(u) => u.to_string(),
+        None => return Ok(None),
+    };
 
     Ok(Some(ReleaseInfo {
         version: remote_version,
