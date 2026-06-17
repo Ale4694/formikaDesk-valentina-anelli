@@ -80,7 +80,18 @@ pub async fn download_and_install_update(
         .await
         .map_err(|e| e.to_string())?;
 
+    let status = resp.status();
     let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+
+    if !status.is_success() {
+        let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(100)]).to_string();
+        return Err(format!("HTTP {}: {}", status.as_u16(), preview));
+    }
+
+    if bytes.len() < 2 || &bytes[..2] != b"MZ" {
+        let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(100)]).to_string();
+        return Err(format!("File non valido (non è un .exe): {:?}", preview));
+    }
 
     let tmp_path = std::env::temp_dir().join("autoparts-update-setup.exe");
     std::fs::write(&tmp_path, &bytes).map_err(|e| e.to_string())?;
