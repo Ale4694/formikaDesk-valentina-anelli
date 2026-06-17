@@ -223,8 +223,8 @@
       buono:             3,
     }
     const min = minimi[tipo] ?? 1
-    const n = $documenti.filter(d => d.tipo_documento === tipo).length
-    return Math.max(n + 1, min).toString()
+    const count = $documenti.filter(d => d.tipo_documento === tipo && parseInt(d.numero) >= min).length
+    return Math.max(count + min, min).toString()
   }
 
   onMount(async () => {
