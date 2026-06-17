@@ -69,7 +69,10 @@ pub async fn download_and_install_update(
 ) -> Result<(), String> {
     use std::process::Command;
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()
+        .map_err(|e| e.to_string())?;
     let resp = client
         .get(&download_url)
         .header("User-Agent", "autoparts-gestionale")
