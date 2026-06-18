@@ -217,10 +217,10 @@
       fattura:           16,
       ddt:               16,
       fattura_differita: 16,
-      preventivo:        6,
+      preventivo:        3,
       nota_credito:      1,
       vendita_banco:     1,
-      buono:             3,
+      buono:             7,
     }
     const min = minimi[tipo] ?? 1
     const count = $documenti.filter(d =>

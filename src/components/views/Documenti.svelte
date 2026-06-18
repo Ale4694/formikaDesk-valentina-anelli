@@ -102,6 +102,8 @@
   let pageItems: Documento[] = []
   let pageLoading = false
 
+  $: documentiVisibili = pageItems.filter(d => d.data >= '2026-01-01')
+
   // Ordinamento
   type SortDir = 'asc' | 'desc'
   let sortCol = 'data'
@@ -291,7 +293,7 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-800">
-        {#each pageItems as d}
+        {#each documentiVisibili as d}
           <tr class="table-row-hover">
             <td class="px-4 py-3">
               <span class="{tipoBadge[d.tipo_documento] ?? 'badge-gray'} text-xs">
@@ -307,7 +309,8 @@
               <div class="flex items-center gap-1.5">
                 {#if d.stato === 'bozza'}
                   <button class="btn-secondary text-xs px-2 py-1" on:click={() => cambiaStato(d.id, 'confermato')}>Conferma</button>
-                {:else if d.stato === 'confermato'}
+                {/if}
+                {#if d.stato !== 'pagato' && d.stato !== 'annullato'}
                   <button class="btn-secondary text-xs px-2 py-1 text-green-400" on:click={() => apriPagamento(d)}>Segna pagato</button>
                 {/if}
                 <button
