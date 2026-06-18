@@ -101,8 +101,11 @@
   let pageTotal = 0
   let pageItems: Documento[] = []
   let pageLoading = false
+  let mostraStorici = false
 
-  $: documentiVisibili = pageItems.filter(d => d.data >= '2026-01-01')
+  $: documentiVisibili = mostraStorici
+    ? pageItems
+    : pageItems.filter(d => d.data >= '2026-01-01')
 
   // Ordinamento
   type SortDir = 'asc' | 'desc'
@@ -264,6 +267,13 @@
       </button>
     {/each}
   </div>
+
+  <button
+    class="text-xs text-gray-500 underline mt-1"
+    on:click={() => mostraStorici = !mostraStorici}
+  >
+    {mostraStorici ? 'Nascondi documenti precedenti al 2026' : 'Mostra documenti precedenti al 2026'}
+  </button>
 
   <div class="card overflow-hidden">
     <table class="w-full text-sm">
