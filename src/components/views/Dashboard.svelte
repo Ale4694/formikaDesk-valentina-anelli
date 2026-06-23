@@ -42,11 +42,11 @@
       if (reportTipo === 'mensile') {
         reportData = await api.report.getMensile(reportAnno, reportMese)
       } else if (reportTipo === 'giornaliero') {
-        reportData = await api.report.getPeriodo(reportDataFrom, reportDataFrom)
+        reportData = await api.report.getGiornaliero(reportDataFrom)
       } else if (reportTipo === 'annuale') {
-        reportData = await api.report.getPeriodo(`${reportAnno}-01-01`, `${reportAnno}-12-31`)
+        reportData = await api.report.getAnnuale(reportAnno)
       } else if (reportTipo === 'personalizzato') {
-        reportData = await api.report.getPeriodo(reportDataFrom, reportDataTo)
+        reportData = await api.report.getPersonalizzato(reportDataFrom, reportDataTo)
       }
       reportOpen = true
     } catch (e: any) {
