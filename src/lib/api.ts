@@ -105,7 +105,7 @@ export const api = {
   report: {
     getMensile: (anno: number, mese: number) => call<ReportMensile>('get_report_mensile', { anno, mese }),
     getPeriodo: (dataFrom: string, dateTo: string) =>
-      call<ReportMensile>('get_report_periodo', { dataFrom, dateTo }),
+      call<ReportMensile>('get_report_periodo', { data_from: dataFrom, data_to: dateTo }),
   },
   cassa: {
     getAll: () => call<ScontrinoCompleto[]>('get_all_scontrini'),
