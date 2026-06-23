@@ -18,6 +18,7 @@
     cf: '',
     telefono: '',
     email: '',
+    iban: '',
   }
 
   let form: Impostazioni = {
@@ -59,18 +60,19 @@
       form = { ...form, ...data }
       // Inizializza form azienda dall'appConfig già caricato
       const cfg = await api.config.get()
-      if (cfg.intestazione) {
-        formAzienda = {
-          ragione_sociale: cfg.intestazione.ragione_sociale ?? '',
-          sottotitolo:     cfg.intestazione.sottotitolo     ?? '',
-          indirizzo:       cfg.intestazione.indirizzo       ?? '',
-          cap_citta:       cfg.intestazione.cap_citta       ?? '',
-          piva:            cfg.intestazione.piva            ?? '',
-          cf:              cfg.intestazione.cf              ?? '',
-          telefono:        cfg.intestazione.telefono         ?? '',
-          email:           cfg.intestazione.email           ?? '',
-        }
-      }
+          if (cfg.intestazione) {
+            formAzienda = {
+              ragione_sociale: cfg.intestazione.ragione_sociale ?? '',
+              sottotitolo:     cfg.intestazione.sottotitolo     ?? '',
+              indirizzo:       cfg.intestazione.indirizzo       ?? '',
+              cap_citta:       cfg.intestazione.cap_citta       ?? '',
+              piva:            cfg.intestazione.piva            ?? '',
+              cf:              cfg.intestazione.cf              ?? '',
+              telefono:        cfg.intestazione.telefono         ?? '',
+              email:           cfg.intestazione.email           ?? '',
+              iban:            cfg.intestazione.iban            ?? '',
+            }
+          }
     } catch (e: any) {
       setError(e?.message ?? 'Errore caricamento impostazioni')
     } finally {
@@ -82,16 +84,17 @@
     if (savingAzienda) return
     savingAzienda = true
     try {
-      const updatedConfig = await api.config.salvaIntestazione({
-        ragione_sociale: formAzienda.ragione_sociale,
-        sottotitolo:     formAzienda.sottotitolo     || null,
-        indirizzo:       formAzienda.indirizzo       || null,
-        cap_citta:       formAzienda.cap_citta       || null,
-        piva:            formAzienda.piva            || null,
-        cf:              formAzienda.cf              || null,
-        telefono:        formAzienda.telefono        || null,
-        email:           formAzienda.email           || null,
-      })
+       const updatedConfig = await api.config.salvaIntestazione({
+         ragione_sociale: formAzienda.ragione_sociale,
+         sottotitolo:     formAzienda.sottotitolo     || null,
+         indirizzo:       formAzienda.indirizzo       || null,
+         cap_citta:       formAzienda.cap_citta       || null,
+         piva:            formAzienda.piva            || null,
+         cf:              formAzienda.cf              || null,
+         telefono:        formAzienda.telefono        || null,
+         email:           formAzienda.email           || null,
+         iban:            formAzienda.iban            || null,
+       })
       appConfig.set(updatedConfig)
       setSuccess('Dati azienda salvati')
     } catch (e: any) {
@@ -227,6 +230,16 @@
               type="email"
               bind:value={formAzienda.email}
               placeholder="info@esempio.it"
+            />
+          </div>
+          <div>
+            <label class="label" for="az_iban">IBAN</label>
+            <input
+              id="az_iban"
+              class="input font-mono"
+              type="text"
+              bind:value={formAzienda.iban}
+              placeholder="IT00 X 00000 00000 000000000000"
             />
           </div>
         </div>

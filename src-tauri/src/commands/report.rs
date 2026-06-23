@@ -15,7 +15,7 @@ pub async fn get_report_mensile(
 
     let totale_entrate: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti
-         WHERE tipo_documento='fattura' AND stato != 'annullato'
+         WHERE tipo_documento NOT IN ('nota_credito', 'ddt_fornitore') AND stato != 'annullato'
          AND strftime('%Y-%m', data) = ?",
     )
     .bind(&periodo)
@@ -37,7 +37,7 @@ pub async fn get_report_mensile(
                 d.totale_documento, d.stato
          FROM documenti d
          LEFT JOIN clienti c ON d.cliente_id = c.id
-         WHERE d.tipo_documento = 'fattura'
+         WHERE d.tipo_documento NOT IN ('nota_credito', 'ddt_fornitore')
            AND strftime('%Y-%m', d.data) = ?
          ORDER BY d.data ASC",
     )
@@ -76,7 +76,7 @@ pub async fn get_report_giornaliero(
 ) -> Result<ReportMensile, AppError> {
     let totale_entrate: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti
-         WHERE tipo_documento='fattura' AND stato != 'annullato'
+         WHERE tipo_documento NOT IN ('nota_credito', 'ddt_fornitore') AND stato != 'annullato'
          AND data = ?",
     )
     .bind(&giorno)
@@ -98,7 +98,7 @@ pub async fn get_report_giornaliero(
                 d.totale_documento, d.stato
          FROM documenti d
          LEFT JOIN clienti c ON d.cliente_id = c.id
-         WHERE d.tipo_documento = 'fattura'
+         WHERE d.tipo_documento NOT IN ('nota_credito', 'ddt_fornitore')
            AND d.data = ?
          ORDER BY d.data ASC",
     )
@@ -140,7 +140,7 @@ pub async fn get_report_annuale(
 
     let totale_entrate: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti
-         WHERE tipo_documento='fattura' AND stato != 'annullato'
+         WHERE tipo_documento NOT IN ('nota_credito', 'ddt_fornitore') AND stato != 'annullato'
          AND data >= ? AND data <= ?",
     )
     .bind(&dal)
@@ -164,7 +164,7 @@ pub async fn get_report_annuale(
                 d.totale_documento, d.stato
          FROM documenti d
          LEFT JOIN clienti c ON d.cliente_id = c.id
-         WHERE d.tipo_documento = 'fattura'
+         WHERE d.tipo_documento NOT IN ('nota_credito', 'ddt_fornitore')
            AND d.data >= ? AND d.data <= ?
          ORDER BY d.data ASC",
     )
@@ -205,7 +205,7 @@ pub async fn get_report_personalizzato(
 ) -> Result<ReportMensile, AppError> {
     let totale_entrate: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti
-         WHERE tipo_documento='fattura' AND stato != 'annullato'
+         WHERE tipo_documento NOT IN ('nota_credito', 'ddt_fornitore') AND stato != 'annullato'
          AND data >= ? AND data <= ?",
     )
     .bind(&dal)
@@ -229,7 +229,7 @@ pub async fn get_report_personalizzato(
                 d.totale_documento, d.stato
          FROM documenti d
          LEFT JOIN clienti c ON d.cliente_id = c.id
-         WHERE d.tipo_documento = 'fattura'
+         WHERE d.tipo_documento NOT IN ('nota_credito', 'ddt_fornitore')
            AND d.data >= ? AND d.data <= ?
          ORDER BY d.data ASC",
     )

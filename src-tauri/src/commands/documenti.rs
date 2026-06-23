@@ -134,8 +134,8 @@ pub async fn create_documento(
     let doc_id = sqlx::query(
         "INSERT INTO documenti (tipo_documento, numero, data, cliente_id, fornitore_id, note,
          totale_imponibile, totale_iva, totale_documento, scadenza_pagamento, giorni_pagamento,
-         is_fattura_differita, ddt_collegati)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         is_fattura_differita, ddt_collegati, stato)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confermato')",
     )
     .bind(&doc.tipo_documento)
     .bind(&doc.numero)

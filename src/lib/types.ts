@@ -411,6 +411,7 @@ export interface ConfigIntestazione {
   cf: string | null
   telefono: string | null
   email: string | null
+  iban: string | null
 }
 
 export interface AppConfig {

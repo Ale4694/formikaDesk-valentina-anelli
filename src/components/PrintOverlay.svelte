@@ -3,13 +3,14 @@
   import { printData, clienti, ricambi, formatCurrency, formatDate, appConfig } from '../lib/stores'
 
   const tipoLabelMap: Record<string, string> = {
-    fattura:           'FATTURA',
+    fattura:           'FATTURA IMMEDIATA',
     preventivo:        'PREVENTIVO',
-    ddt:               'DOCUMENTO DI TRASPORTO',
+    ddt:               'DDT',
     nota_credito:      'NOTA DI CREDITO',
     vendita_banco:     'VENDITA BANCO',
     buono:             'BUONO',
     fattura_differita: 'FATTURA DIFFERITA',
+    ddt_fornitore:     'DDT FORNITORE',
   }
 
   $: doc = $printData?.documento
@@ -27,7 +28,7 @@
   }))
 
   $: righeVuoteA = Array.from({ length: Math.max(0, 18 - righeConInfo.length) })
-  $: righeVuoteB = Array.from({ length: Math.max(0, 15 - righeConInfo.length) })
+  $: righeVuoteB = Array.from({ length: Math.max(0, 10 - righeConInfo.length) })
 
   $: riepilogoIvaMap = righe.reduce((acc, r) => {
     const k = r.iva_percentuale
@@ -194,6 +195,9 @@
             <div class="cell-label">MITTENTE</div>
             <div class="cell-body">
               <div class="mit-nome">{$appConfig?.intestazione?.ragione_sociale ?? $appConfig?.nome_attivita ?? ''}</div>
+              {#if $appConfig?.intestazione?.sottotitolo}
+                <div class="mit-sottotitolo">{$appConfig.intestazione.sottotitolo}</div>
+              {/if}
               {#if $appConfig?.intestazione?.indirizzo}
                 <div class="mit-detail">{$appConfig.intestazione.indirizzo}</div>
               {/if}
@@ -344,9 +348,10 @@
         </div>
 
         <!-- SEZIONE 5: Riepilogo IVA + Totali -->
-        <div class="row-iva-totali">
-          <div class="iva-sinistra">
-            <table class="iva-table">
+         <div class="row-iva-totali">
+           <div class="iva-sinistra">
+             <div class="cell-label">RIEPILOGO IVA</div>
+             <table class="iva-table">
               <thead>
                 <tr>
                   <th>ALIQUOTA</th>
@@ -422,10 +427,10 @@
         </div>
 
         <!-- SEZIONE 8: IBAN -->
-        <div class="row-iban">
-          <div class="cell-label">IBAN PER BONIFICO</div>
-          <div class="cell-body iban-val">&nbsp;</div>
-        </div>
+         <div class="row-iban">
+           <div class="cell-label">IBAN PER BONIFICO</div>
+           <div class="cell-body iban-val">{$appConfig?.intestazione?.iban ?? ''}</div>
+         </div>
 
       </div>
     {/if}
@@ -460,7 +465,7 @@
     font-family: Arial, Helvetica, sans-serif;
     font-size: 10pt;
     color: #1a1a1a;
-    padding: 6mm 8mm 22mm 8mm;
+    padding: 2mm 8mm 2mm 8mm;
   }
 
   /* ── Celle generiche con label ──────────────────────── */
@@ -687,7 +692,7 @@
   }
 
   :global(#print-overlay) .td-empty {
-    height: 6mm;
+    height: 4mm;
   }
 
   :global(#print-overlay) .th-codice { width: 11%; }
@@ -714,7 +719,7 @@
   :global(#print-overlay) .row-header3 {
     display: flex;
     gap: 3mm;
-    margin-bottom: 3mm;
+    margin-bottom: 1.5mm;
   }
 
   :global(#print-overlay) .box-mittente {
@@ -768,11 +773,17 @@
   :global(#print-overlay) .doc-tipo-badge {
     font-size: 10pt;
     font-weight: bold;
-    color: #B91C1C;
+    color: #fff;
     text-align: center;
     padding: 1.5mm 2mm;
-    background: #fef2f2;
+    background: #B91C1C;
     border-bottom: 0.8pt solid #1a1a1a;
+  }
+
+  .mit-sottotitolo {
+    font-size: 8pt;
+    color: #666;
+    margin-bottom: 1mm;
   }
 
   :global(#print-overlay) .doc-body {
@@ -842,13 +853,13 @@
   :global(#print-overlay) .row-causale {
     display: flex;
     border: 0.8pt solid #1a1a1a;
-    margin-bottom: 3mm;
+    margin-bottom: 1.5mm;
     overflow: hidden;
   }
 
   :global(#print-overlay) .caus-cell {
     border-right: 0.5pt solid #ccc;
-    min-height: 9mm;
+    min-height: 7mm;
     overflow: hidden;
   }
 
@@ -885,7 +896,7 @@
 
   :global(#print-overlay) .row-iva-totali {
     display: flex;
-    margin-top: 3mm;
+    margin-top: 1.5mm;
     border: 0.8pt solid #1a1a1a;
     overflow: hidden;
   }
@@ -971,7 +982,7 @@
 
   :global(#print-overlay) .row-trasporto {
     display: flex;
-    margin-top: 3mm;
+    margin-top: 1mm;
     border: 0.8pt solid #1a1a1a;
     overflow: hidden;
   }
@@ -985,7 +996,7 @@
 
   :global(#print-overlay) .row-firme {
     display: flex;
-    margin-top: 3mm;
+    margin-top: 1mm;
     border: 0.8pt solid #1a1a1a;
     overflow: hidden;
   }
@@ -993,19 +1004,28 @@
   :global(#print-overlay) .firma-cell {
     flex: 1;
     border-right: 0.5pt solid #ccc;
-    min-height: 20mm;
+    min-height: 9mm;
     overflow: hidden;
   }
 
   :global(#print-overlay) .firma-spazio {
-    min-height: 14mm;
+    min-height: 11mm;
     padding: 2mm;
   }
 
   :global(#print-overlay) .row-iban {
-    margin-top: 3mm;
+    margin-top: 1mm;
     border: 0.8pt solid #1a1a1a;
     overflow: hidden;
+    min-height: 8mm;
+  }
+
+  :global(#print-overlay) .row-iva-totali,
+  :global(#print-overlay) .row-trasporto,
+  :global(#print-overlay) .row-firme,
+  :global(#print-overlay) .row-iban {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   :global(#print-overlay) .iban-val {
@@ -1013,5 +1033,13 @@
     font-weight: bold;
     font-family: monospace;
     letter-spacing: 0.1em;
+  }
+
+  @media print {
+    :global(#print-overlay) .doc-fattura {
+      transform: scale(0.92);
+      transform-origin: top left;
+      width: 108.7%;
+    }
   }
 </style>

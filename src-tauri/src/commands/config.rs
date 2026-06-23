@@ -12,6 +12,7 @@ pub struct Intestazione {
     pub cf: Option<String>,
     pub telefono: Option<String>,
     pub email: Option<String>,
+    pub iban: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

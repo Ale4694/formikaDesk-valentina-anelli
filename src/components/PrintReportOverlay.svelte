@@ -77,20 +77,7 @@
   }
 
   @media print {
-    :global(body *) {
-      visibility: hidden;
-    }
-    #print-report-overlay,
-    :global(#print-report-overlay *) {
-      visibility: visible;
-    }
     #print-report-overlay {
-      display: block;
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: #fff;
       color: #000;
       font-family: Arial, Helvetica, sans-serif;
       padding: 15mm 20mm;

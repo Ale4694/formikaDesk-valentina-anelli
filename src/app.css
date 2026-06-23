@@ -9,7 +9,14 @@
   }
 
   #app-wrapper { display: none !important; }
-
+  
+  body {
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
   /* Stampa fattura (default) */
   #print-overlay {
     display: block !important;
@@ -30,6 +37,22 @@
     z-index: 9999;
     overflow: visible;
   }
+
+  /* Stampa report: nascondi fattura e modal backdrop, mostra report */
+  body.print-report #print-overlay         { display: none !important; }
+  body.print-report .report-modal-overlay,
+  body.print-report .report-modal-content { display: none !important; }
+  body.print-report #print-report-overlay  {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 9999;
+    overflow: visible;
+  }
+  body.print-report .pg-footer,
+  body.print-scontrino .pg-footer,
+  #print-overlay .pg-footer { display: none !important; }
 }
 
 @layer base {

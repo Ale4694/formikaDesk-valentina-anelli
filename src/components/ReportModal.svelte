@@ -19,7 +19,9 @@
     if (!report) return
     printReportData.set(report)
     await tick()
+    document.body.classList.add('print-report')
     window.print()
+    setTimeout(() => document.body.classList.remove('print-report'), 500)
   }
 </script>
 

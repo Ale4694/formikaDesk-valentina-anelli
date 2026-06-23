@@ -345,9 +345,6 @@
             <td class="px-4 py-3"><span class={statoBadge[d.stato]}>{d.stato}</span></td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1.5">
-                {#if d.stato === 'bozza'}
-                  <button class="btn-secondary text-xs px-2 py-1" on:click={() => cambiaStato(d.id, 'confermato')}>Conferma</button>
-                {/if}
                 {#if d.stato !== 'pagato' && d.stato !== 'annullato'}
                   <button class="btn-secondary text-xs px-2 py-1 text-green-400" on:click={() => apriPagamento(d)}>Segna pagato</button>
                 {/if}
