@@ -10,6 +10,7 @@
   import Documenti from '../components/views/Documenti.svelte'
   import NuovaFattura from '../components/views/NuovaFattura.svelte'
   import PrintOverlay from '../components/PrintOverlay.svelte'
+  import PrintReportOverlay from '../components/PrintReportOverlay.svelte'
   import SearchModal from '../components/SearchModal.svelte'
   import LicenseGate from '../components/LicenseGate.svelte'
   import Veicoli from '../components/views/Veicoli.svelte'
@@ -184,5 +185,6 @@
   </div>
 
   <PrintOverlay />
+  <PrintReportOverlay />
   <SearchModal />
 {/if}
