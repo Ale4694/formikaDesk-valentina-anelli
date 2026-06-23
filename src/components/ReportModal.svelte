@@ -14,6 +14,99 @@
   function handleBackdrop(e: MouseEvent) {
     if (e.target === e.currentTarget) dispatch('close')
   }
+
+  function stampaReport() {
+    if (!report) return
+    const w = window.open('', '_blank', 'width=800,height=900')
+    if (!w) return
+
+    const titolo = report.mese > 0
+      ? `Report ${mesi[report.mese]} ${report.anno}`
+      : report.anno > 0
+        ? `Report ${report.anno}`
+        : 'Report periodo'
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${titolo}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20mm; color: #000; }
+          h1 { font-size: 18pt; margin-bottom: 10mm; border-bottom: 2pt solid #000; padding-bottom: 3mm; }
+          .stats { display: flex; gap: 10mm; margin-bottom: 8mm; }
+          .stat-box { flex: 1; border: 0.5pt solid #999; padding: 4mm; }
+          .stat-label { font-size: 9pt; color: #666; margin-bottom: 2mm; }
+          .stat-value { font-size: 14pt; font-weight: bold; }
+          .info-row { display: flex; gap: 10mm; margin-bottom: 8mm; font-size: 10pt; }
+          .info-row > div { flex: 1; border: 0.5pt solid #999; padding: 3mm; }
+          h2 { font-size: 12pt; margin-top: 6mm; margin-bottom: 3mm; }
+          table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+          th { background: #e8e8e8; padding: 2mm; text-align: left; border: 0.5pt solid #999; font-weight: bold; }
+          td { padding: 2mm; border: 0.5pt solid #ccc; }
+          .text-right { text-align: right; }
+          @media print { body { padding: 10mm; } }
+        </style>
+      </head>
+      <body>
+        <h1>${titolo}</h1>
+
+        <div class="stats">
+          <div class="stat-box">
+            <div class="stat-label">Entrate (fatture)</div>
+            <div class="stat-value">${formatCurrency(report.totale_entrate)}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Uscite (note credito)</div>
+            <div class="stat-value">${formatCurrency(report.totale_uscite)}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Saldo</div>
+            <div class="stat-value">${formatCurrency(report.saldo)}</div>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div><strong>Fatture emesse:</strong> ${report.lista_fatture.length}</div>
+          <div><strong>Ordini in attesa:</strong> ${report.ordini_in_attesa}</div>
+        </div>
+
+        ${report.lista_fatture.length > 0 ? `
+          <h2>Fatture del periodo</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>N°</th>
+                <th>Cliente</th>
+                <th class="text-right">Totale</th>
+                <th>Stato</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${report.lista_fatture.map(f => `
+                <tr>
+                  <td>${f.numero}</td>
+                  <td>${f.cliente_ragione_sociale ?? ''}</td>
+                  <td class="text-right">${formatCurrency(f.totale_documento)}</td>
+                  <td>${f.stato}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : ''}
+      </body>
+      </html>
+    `
+
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => {
+      w.print()
+      w.close()
+    }, 250)
+  }
 </script>
 
 {#if open && report}
@@ -28,7 +121,7 @@
           {report.mese > 0 ? `Report ${mesi[report.mese]} ${report.anno}` : report.anno > 0 ? `Report ${report.anno}` : 'Report periodo'}
         </h2>
         <div class="flex items-center gap-2">
-          <button on:click={() => window.print()} class="btn-secondary text-xs flex items-center gap-1.5">
+          <button on:click={stampaReport} class="btn-secondary text-xs flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
@@ -108,23 +201,3 @@
   </div>
 {/if}
 
-<style>
-  @media print {
-    .report-modal-overlay {
-      position: static !important;
-      background: white !important;
-      backdrop-filter: none !important;
-      padding: 0 !important;
-    }
-    .report-modal-content {
-      position: static !important;
-      max-height: none !important;
-      overflow: visible !important;
-      background: white !important;
-      color: black !important;
-      box-shadow: none !important;
-      border: none !important;
-      border-radius: 0 !important;
-    }
-  }
-</style>
