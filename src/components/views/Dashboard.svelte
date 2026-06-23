@@ -33,18 +33,11 @@
   ] as StatCard[]) : []
 
   // Resoconto
-  type PeriodoType = 'oggi' | 'settimana' | 'mese' | 'anno'
-  let periodoAttivo: PeriodoType = 'oggi'
+  let resocontoFrom: string = ''
+  let resocontoTo: string = ''
   let tipoFiltro: string = 'tutti'
   let resocontoData: ResocontoPeriodo | null = null
   let resocontoLoading = false
-
-  const periodi: { value: PeriodoType; label: string }[] = [
-    { value: 'oggi', label: 'Oggi' },
-    { value: 'settimana', label: 'Settimana' },
-    { value: 'mese', label: 'Mese' },
-    { value: 'anno', label: 'Anno' },
-  ]
 
   const tipiDocumento = [
     { value: 'tutti', label: 'Tutti' },
@@ -57,40 +50,18 @@
     { value: 'fattura_differita', label: 'Fatture differite' },
   ]
 
-  function getDateRange(periodo: PeriodoType): { from: string; to: string } {
-    const oggi = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-
-    if (periodo === 'oggi') {
-      const s = fmt(oggi)
-      return { from: s, to: s }
-    }
-    if (periodo === 'settimana') {
-      const lun = new Date(oggi)
-      lun.setDate(oggi.getDate() - oggi.getDay() + 1)
-      return { from: fmt(lun), to: fmt(oggi) }
-    }
-    if (periodo === 'mese') {
-      const inizio = new Date(oggi.getFullYear(), oggi.getMonth(), 1)
-      return { from: fmt(inizio), to: fmt(oggi) }
-    }
-    return { from: `${oggi.getFullYear()}-01-01`, to: fmt(oggi) }
-  }
-
   async function aggiornaResoconto() {
+    if (!resocontoFrom || !resocontoTo) return
     resocontoLoading = true
     try {
-      const { from, to } = getDateRange(periodoAttivo)
-      resocontoData = await api.dashboard.getResoconto(from, to, tipoFiltro)
+      resocontoData = await api.dashboard.getResoconto(resocontoFrom, resocontoTo, tipoFiltro)
+      console.log(resocontoData)
     } catch (e: any) {
       console.error(e)
     } finally {
       resocontoLoading = false
     }
   }
-
-  $: periodoAttivo, tipoFiltro, aggiornaResoconto()
 
   async function generaReport() {
     reportLoading = true
@@ -178,49 +149,51 @@
     <div class="card p-4 mt-4">
       <h2 class="text-lg font-bold mb-3">Resoconto vendite</h2>
 
-      <!-- Selezione periodo -->
-      <div class="flex gap-2 mb-3 flex-wrap">
-        {#each periodi as p}
-          <button
-            class="px-3 py-1 rounded text-sm font-medium transition-colors {periodoAttivo === p.value ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}"
-            on:click={() => periodoAttivo = p.value}
-          >
-            {p.label}
-          </button>
-        {/each}
-      </div>
-
-      <!-- Filtro tipo documento -->
-      <div class="flex gap-2 mb-4 flex-wrap">
-        {#each tipiDocumento as t}
-          <button
-            class="px-2 py-1 rounded text-xs transition-colors {tipoFiltro === t.value ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}"
-            on:click={() => tipoFiltro = t.value}
-          >
-            {t.label}
-          </button>
-        {/each}
-      </div>
-
-      <!-- Risultati -->
-      {#if resocontoLoading}
-        <div class="text-gray-400 text-sm">Caricamento...</div>
-      {:else if resocontoData}
-        <div class="grid grid-cols-3 gap-4">
-          <div class="bg-gray-800 rounded p-3 text-center">
-            <div class="text-xs text-gray-400 mb-1">Documenti</div>
-            <div class="text-2xl font-bold text-white">{resocontoData.num_documenti}</div>
-          </div>
-          <div class="bg-gray-800 rounded p-3 text-center">
-            <div class="text-xs text-gray-400 mb-1">Totale vendite</div>
-            <div class="text-2xl font-bold text-green-400">{formatCurrency(resocontoData.totale_vendite)}</div>
-          </div>
-          <div class="bg-gray-800 rounded p-3 text-center">
-            <div class="text-xs text-gray-400 mb-1">Totale IVA</div>
-            <div class="text-2xl font-bold text-yellow-400">{formatCurrency(resocontoData.totale_iva)}</div>
-          </div>
+      <!-- Filtri + Calcola -->
+      <div class="flex flex-wrap items-end gap-3 mb-4">
+        <div class="flex flex-col gap-1">
+          <span class="text-xs text-gray-400">Dal</span>
+          <input type="date" bind:value={resocontoFrom}
+            class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
         </div>
-      {/if}
+        <div class="flex flex-col gap-1">
+          <span class="text-xs text-gray-400">Al</span>
+          <input type="date" bind:value={resocontoTo}
+            class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <span class="text-xs text-gray-400">Tipo documento</span>
+          <select bind:value={tipoFiltro}
+            class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
+            {#each tipiDocumento as t}
+              <option value={t.value}>{t.label}</option>
+            {/each}
+          </select>
+        </div>
+        <button
+          class="btn-primary text-sm px-4 py-1.5"
+          disabled={resocontoLoading || !resocontoFrom || !resocontoTo}
+          on:click={aggiornaResoconto}
+        >
+          {resocontoLoading ? 'Calcolo...' : 'Calcola'}
+        </button>
+      </div>
+
+      <!-- Risultati sempre visibili (0 di default) -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="bg-gray-800 rounded p-3 text-center">
+          <div class="text-xs text-gray-400 mb-1">Documenti</div>
+          <div class="text-2xl font-bold text-white">{resocontoData?.num_documenti ?? 0}</div>
+        </div>
+        <div class="bg-gray-800 rounded p-3 text-center">
+          <div class="text-xs text-gray-400 mb-1">Totale vendite</div>
+          <div class="text-2xl font-bold text-green-400">{formatCurrency(resocontoData?.totale_vendite ?? 0)}</div>
+        </div>
+        <div class="bg-gray-800 rounded p-3 text-center">
+          <div class="text-xs text-gray-400 mb-1">Totale IVA</div>
+          <div class="text-2xl font-bold text-yellow-400">{formatCurrency(resocontoData?.totale_iva ?? 0)}</div>
+        </div>
+      </div>
     </div>
   {/if}
 </div>
