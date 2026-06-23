@@ -70,6 +70,71 @@ pub async fn get_report_mensile(
 }
 
 #[tauri::command]
+pub async fn get_report_periodo(
+    data_from: String,
+    data_to: String,
+    state: State<'_, AppState>,
+) -> Result<ReportMensile, AppError> {
+    let totale_entrate: f64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti
+         WHERE tipo_documento='fattura' AND stato != 'annullato'
+         AND data >= ? AND data <= ?",
+    )
+    .bind(&data_from)
+    .bind(&data_to)
+    .fetch_one(&state.db)
+    .await?;
+
+    let totale_uscite: f64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti
+         WHERE tipo_documento='nota_credito' AND stato != 'annullato'
+         AND data >= ? AND data <= ?",
+    )
+    .bind(&data_from)
+    .bind(&data_to)
+    .fetch_one(&state.db)
+    .await?;
+
+    let lista_fatture = sqlx::query_as::<_, FatturaReport>(
+        "SELECT d.id, d.numero,
+                c.ragione_sociale AS cliente_ragione_sociale,
+                d.totale_documento, d.stato
+         FROM documenti d
+         LEFT JOIN clienti c ON d.cliente_id = c.id
+         WHERE d.tipo_documento = 'fattura'
+           AND d.data >= ? AND d.data <= ?
+         ORDER BY d.data ASC",
+    )
+    .bind(&data_from)
+    .bind(&data_to)
+    .fetch_all(&state.db)
+    .await?;
+
+    let ricambi_sotto_scorta = sqlx::query_as::<_, Ricambio>(
+        "SELECT * FROM ricambi WHERE giacenza < giacenza_minima ORDER BY descrizione ASC",
+    )
+    .fetch_all(&state.db)
+    .await?;
+
+    let ordini_in_attesa: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM ordini_fornitore WHERE stato IN ('bozza','inviato')",
+    )
+    .fetch_one(&state.db)
+    .await?;
+
+    Ok(ReportMensile {
+        anno: 0,
+        mese: 0,
+        totale_entrate,
+        totale_uscite,
+        saldo: totale_entrate - totale_uscite,
+        lista_fatture,
+        ricambi_sotto_scorta,
+        ordini_in_attesa,
+    })
+}
+
+#[tauri::command]
 pub async fn get_scadenzario(
     state: State<'_, AppState>,
 ) -> Result<Vec<ScadenzaDocumento>, AppError> {

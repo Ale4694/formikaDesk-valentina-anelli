@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::{DashboardStats, ResocontoPeriodo};
+use crate::models::DashboardStats;
 use tauri::State;
 
 #[tauri::command]
@@ -72,50 +72,4 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
         scontrini_oggi,
         incasso_oggi,
     })
-}
-
-#[tauri::command]
-pub async fn get_resoconto_periodo(
-    data_from: String,
-    data_to: String,
-    tipo_documento: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<ResocontoPeriodo, AppError> {
-    let tipo_cond = match tipo_documento.as_deref() {
-        Some(t) if t != "tutti" => format!(" AND tipo_documento = '{}'", t),
-        _ => String::new(),
-    };
-
-    let sql_count = format!(
-        "SELECT COUNT(*) FROM documenti WHERE data >= ? AND data <= ? AND stato != 'annullato'{}",
-        tipo_cond
-    );
-    let sql_vendite = format!(
-        "SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti WHERE data >= ? AND data <= ? AND stato != 'annullato'{}",
-        tipo_cond
-    );
-    let sql_iva = format!(
-        "SELECT COALESCE(SUM(totale_iva), 0.0) FROM documenti WHERE data >= ? AND data <= ? AND stato != 'annullato'{}",
-        tipo_cond
-    );
-
-    let num_documenti: i64 = sqlx::query_scalar(&sql_count)
-        .bind(&data_from)
-        .bind(&data_to)
-        .fetch_one(&state.db)
-        .await?;
-
-    let totale_vendite: f64 = sqlx::query_scalar(&sql_vendite)
-        .bind(&data_from)
-        .bind(&data_to)
-        .fetch_one(&state.db)
-        .await?;
-
-    let totale_iva: f64 = sqlx::query_scalar(&sql_iva)
-        .bind(&data_from)
-        .bind(&data_to)
-        .fetch_one(&state.db)
-        .await?;
-
-    Ok(ResocontoPeriodo { num_documenti, totale_vendite, totale_iva })
 }

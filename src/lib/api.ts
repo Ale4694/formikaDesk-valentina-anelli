@@ -4,7 +4,7 @@ import type {
   Fornitore, NuovoFornitore,
   Ricambio, NuovoRicambio, RicambioResult,
   Documento, DocumentoCompleto, NuovoDocumento,
-  DashboardStats, ResocontoPeriodo, RisultatoRicerca,
+  DashboardStats, RisultatoRicerca,
   Veicolo, NuovoVeicolo,
   OrdineCompleto, NuovoOrdineFornitore,
   ReportMensile, ScadenzaDocumento,
@@ -26,12 +26,6 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 export const api = {
   dashboard: {
     getStats: () => call<DashboardStats>('get_dashboard_stats'),
-    getResoconto: (dataFrom: string, dateTo: string, tipo?: string) =>
-      call<ResocontoPeriodo>('get_resoconto_periodo', {
-        dataFrom,
-        dateTo,
-        tipoDocumento: tipo ?? 'tutti'
-      }),
   },
   clienti: {
     getAll: () => call<Cliente[]>('get_all_clienti'),
@@ -110,6 +104,8 @@ export const api = {
   },
   report: {
     getMensile: (anno: number, mese: number) => call<ReportMensile>('get_report_mensile', { anno, mese }),
+    getPeriodo: (dataFrom: string, dateTo: string) =>
+      call<ReportMensile>('get_report_periodo', { dataFrom, dateTo }),
   },
   cassa: {
     getAll: () => call<ScontrinoCompleto[]>('get_all_scontrini'),

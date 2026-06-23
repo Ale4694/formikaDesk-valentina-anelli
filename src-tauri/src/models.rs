@@ -391,10 +391,3 @@ pub struct ArticoloStorico {
     pub quantita_totale: f64,
     pub frequenza: i64,
 }
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ResocontoPeriodo {
-    pub num_documenti: i64,
-    pub totale_vendite: f64,
-    pub totale_iva: f64,
-}

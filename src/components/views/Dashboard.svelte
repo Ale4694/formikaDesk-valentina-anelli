@@ -3,7 +3,7 @@
   import { dashboardStats, formatCurrency, currentView } from '../../lib/stores'
   import { api } from '../../lib/api'
   import ReportModal from '../ReportModal.svelte'
-  import type { ReportMensile, ResocontoPeriodo } from '../../lib/types'
+  import type { ReportMensile } from '../../lib/types'
 
   const dispatch = createEventDispatcher()
 
@@ -32,35 +32,47 @@
     { label: 'Incasso oggi',       value: formatCurrency($dashboardStats.incasso_oggi),      color: 'text-orange-400' },
   ] as StatCard[]) : []
 
-  // Resoconto
-  let resocontoFrom: string = ''
-  let resocontoTo: string = ''
-  let tipoFiltro: string = 'tutti'
-  let resocontoData: ResocontoPeriodo | null = null
-  let resocontoLoading = false
+  // Report periodo
+  let periodoFrom: string = ''
+  let periodoTo: string = ''
+  let periodoLoading = false
 
-  const tipiDocumento = [
-    { value: 'tutti', label: 'Tutti' },
-    { value: 'fattura', label: 'Fatture' },
-    { value: 'ddt', label: 'DDT' },
-    { value: 'buono', label: 'Buoni' },
-    { value: 'preventivo', label: 'Preventivi' },
-    { value: 'nota_credito', label: 'Note credito' },
-    { value: 'vendita_banco', label: 'Vendita banco' },
-    { value: 'fattura_differita', label: 'Fatture differite' },
-  ]
+  function fmtDate(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  }
 
-  async function aggiornaResoconto() {
-    if (!resocontoFrom || !resocontoTo) return
-    resocontoLoading = true
+  async function generaReportPeriodo() {
+    if (!periodoFrom || !periodoTo) return
+    periodoLoading = true
     try {
-      resocontoData = await api.dashboard.getResoconto(resocontoFrom, resocontoTo, tipoFiltro)
-      console.log(resocontoData)
+      reportData = await api.report.getPeriodo(periodoFrom, periodoTo)
+      reportOpen = true
     } catch (e: any) {
       console.error(e)
     } finally {
-      resocontoLoading = false
+      periodoLoading = false
     }
+  }
+
+  async function reportOggi() {
+    const s = fmtDate(new Date())
+    periodoFrom = s; periodoTo = s
+    await generaReportPeriodo()
+  }
+
+  async function reportSettimana() {
+    const oggi = new Date()
+    const lun = new Date(oggi)
+    lun.setDate(oggi.getDate() - ((oggi.getDay() + 6) % 7))
+    periodoFrom = fmtDate(lun); periodoTo = fmtDate(oggi)
+    await generaReportPeriodo()
+  }
+
+  async function reportAnnoCorrente() {
+    const oggi = new Date()
+    periodoFrom = `${oggi.getFullYear()}-01-01`; periodoTo = fmtDate(oggi)
+    await generaReportPeriodo()
   }
 
   async function generaReport() {
@@ -145,54 +157,42 @@
       </div>
     </div>
 
-    <!-- Resoconto vendite -->
-    <div class="card p-4 mt-4">
-      <h2 class="text-lg font-bold mb-3">Resoconto vendite</h2>
+    <!-- Report per periodo -->
+    <div class="card p-4">
+      <p class="text-sm font-medium text-gray-300 mb-3">Report per periodo</p>
 
-      <!-- Filtri + Calcola -->
-      <div class="flex flex-wrap items-end gap-3 mb-4">
+      <!-- Pulsanti rapidi -->
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <button on:click={reportOggi} disabled={periodoLoading} class="btn-secondary text-xs">
+          Oggi
+        </button>
+        <button on:click={reportSettimana} disabled={periodoLoading} class="btn-secondary text-xs">
+          Questa settimana
+        </button>
+        <button on:click={reportAnnoCorrente} disabled={periodoLoading} class="btn-secondary text-xs">
+          Quest'anno
+        </button>
+      </div>
+
+      <!-- Date personalizzate + Genera -->
+      <div class="flex items-end gap-3 flex-wrap">
         <div class="flex flex-col gap-1">
           <span class="text-xs text-gray-400">Dal</span>
-          <input type="date" bind:value={resocontoFrom}
+          <input type="date" bind:value={periodoFrom}
             class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
         </div>
         <div class="flex flex-col gap-1">
           <span class="text-xs text-gray-400">Al</span>
-          <input type="date" bind:value={resocontoTo}
+          <input type="date" bind:value={periodoTo}
             class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
         </div>
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-gray-400">Tipo documento</span>
-          <select bind:value={tipoFiltro}
-            class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
-            {#each tipiDocumento as t}
-              <option value={t.value}>{t.label}</option>
-            {/each}
-          </select>
-        </div>
         <button
-          class="btn-primary text-sm px-4 py-1.5"
-          disabled={resocontoLoading || !resocontoFrom || !resocontoTo}
-          on:click={aggiornaResoconto}
+          on:click={generaReportPeriodo}
+          disabled={periodoLoading || !periodoFrom || !periodoTo}
+          class="btn-primary text-sm"
         >
-          {resocontoLoading ? 'Calcolo...' : 'Calcola'}
+          {periodoLoading ? 'Generazione…' : 'Genera report'}
         </button>
-      </div>
-
-      <!-- Risultati sempre visibili (0 di default) -->
-      <div class="grid grid-cols-3 gap-4">
-        <div class="bg-gray-800 rounded p-3 text-center">
-          <div class="text-xs text-gray-400 mb-1">Documenti</div>
-          <div class="text-2xl font-bold text-white">{resocontoData?.num_documenti ?? 0}</div>
-        </div>
-        <div class="bg-gray-800 rounded p-3 text-center">
-          <div class="text-xs text-gray-400 mb-1">Totale vendite</div>
-          <div class="text-2xl font-bold text-green-400">{formatCurrency(resocontoData?.totale_vendite ?? 0)}</div>
-        </div>
-        <div class="bg-gray-800 rounded p-3 text-center">
-          <div class="text-xs text-gray-400 mb-1">Totale IVA</div>
-          <div class="text-2xl font-bold text-yellow-400">{formatCurrency(resocontoData?.totale_iva ?? 0)}</div>
-        </div>
       </div>
     </div>
   {/if}
