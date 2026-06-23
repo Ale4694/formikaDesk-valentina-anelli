@@ -1,5 +1,5 @@
 {
-  "version": "1.0.54",
-  "notes": "Fix report giornaliero, annuale e personalizzato con comandi Rust separati",
-  "download_url": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/download/v1.0.54-valentina/AutoParts.Gestionale_1.0.54_x64-setup.exe"
+  "version": "1.0.55",
+  "notes": "Rimossa sezione ricambi dal report, fix stampa PDF",
+  "download_url": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/download/v1.0.55-valentina/AutoParts.Gestionale_1.0.55_x64-setup.exe"
 }
