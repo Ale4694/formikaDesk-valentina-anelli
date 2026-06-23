@@ -184,6 +184,12 @@ export interface DashboardStats {
   incasso_oggi: number
 }
 
+export interface ResocontoPeriodo {
+  num_documenti: number
+  totale_vendite: number
+  totale_iva: number
+}
+
 export interface AppError {
   type: 'Database' | 'NotFound' | 'Validation' | 'Internal'
   message: string

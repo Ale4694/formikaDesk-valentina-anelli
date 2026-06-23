@@ -4,7 +4,7 @@ import type {
   Fornitore, NuovoFornitore,
   Ricambio, NuovoRicambio, RicambioResult,
   Documento, DocumentoCompleto, NuovoDocumento,
-  DashboardStats, RisultatoRicerca,
+  DashboardStats, ResocontoPeriodo, RisultatoRicerca,
   Veicolo, NuovoVeicolo,
   OrdineCompleto, NuovoOrdineFornitore,
   ReportMensile, ScadenzaDocumento,
@@ -26,6 +26,12 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 export const api = {
   dashboard: {
     getStats: () => call<DashboardStats>('get_dashboard_stats'),
+    getResoconto: (dataFrom: string, dateTo: string, tipo?: string) =>
+      call<ResocontoPeriodo>('get_resoconto_periodo', {
+        dataFrom,
+        dateTo,
+        tipoDocumento: tipo ?? 'tutti'
+      }),
   },
   clienti: {
     getAll: () => call<Cliente[]>('get_all_clienti'),

@@ -119,6 +119,7 @@ pub fn run() {
             commands::documenti::delete_documento,
             commands::documenti::get_storico_articoli_cliente,
             commands::dashboard::get_dashboard_stats,
+            commands::dashboard::get_resoconto_periodo,
             commands::ricerca::search_global,
             commands::backup::export_ricambi_csv,
             commands::backup::export_clienti_csv,

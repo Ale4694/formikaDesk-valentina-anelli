@@ -102,10 +102,17 @@
   let pageItems: Documento[] = []
   let pageLoading = false
   let mostraStorici = false
+  let dataFrom: string = ''
+  let dateTo: string = ''
 
-  $: documentiVisibili = mostraStorici
-    ? pageItems
-    : pageItems.filter(d => d.data >= '2026-01-01')
+  $: documentiVisibili = (() => {
+    let items = mostraStorici ? pageItems : pageItems.filter(d => d.data >= '2026-01-01')
+    if (dataFrom) items = items.filter(d => d.data >= dataFrom)
+    if (dateTo) items = items.filter(d => d.data <= dateTo)
+    return items
+  })()
+
+  $: totalePeriodo = documentiVisibili.reduce((acc, d) => acc + (d.totale_documento ?? 0), 0)
 
   // Ordinamento
   type SortDir = 'asc' | 'desc'
@@ -266,6 +273,27 @@
         {t === 'tutti' ? 'Tutti i tipi' : (tipoLabel[t] ?? t)}
       </button>
     {/each}
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3 mt-2 px-1">
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-gray-400">Dal</span>
+      <input type="date" bind:value={dataFrom} class="input text-sm px-2 py-1" />
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-gray-400">Al</span>
+      <input type="date" bind:value={dateTo} class="input text-sm px-2 py-1" />
+    </div>
+    {#if dataFrom || dateTo}
+      <button class="text-xs text-gray-500 underline" on:click={() => { dataFrom = ''; dateTo = '' }}>
+        Azzera
+      </button>
+    {/if}
+    {#if dataFrom || dateTo}
+      <span class="ml-auto text-sm font-bold text-green-400">
+        Totale periodo: {formatCurrency(totalePeriodo)}
+      </span>
+    {/if}
   </div>
 
   <button
