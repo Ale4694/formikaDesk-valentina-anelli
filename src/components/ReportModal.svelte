@@ -25,7 +25,7 @@
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
         <h2 class="text-base font-semibold text-white">
-          {report.mese > 0 ? `Report ${mesi[report.mese]} ${report.anno}` : 'Report periodo'}
+          {report.mese > 0 ? `Report ${mesi[report.mese]} ${report.anno}` : report.anno > 0 ? `Report ${report.anno}` : 'Report periodo'}
         </h2>
         <div class="flex items-center gap-2">
           <button on:click={() => window.print()} class="btn-secondary text-xs flex items-center gap-1.5">

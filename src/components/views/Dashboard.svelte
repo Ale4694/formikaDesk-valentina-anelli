@@ -14,6 +14,10 @@
   let reportOpen = false
   let reportLoading = false
 
+  let reportTipo: 'mensile' | 'giornaliero' | 'annuale' | 'personalizzato' = 'mensile'
+  let reportDataFrom: string = ''
+  let reportDataTo: string = ''
+
   const mesi = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
                  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 
@@ -32,53 +36,18 @@
     { label: 'Incasso oggi',       value: formatCurrency($dashboardStats.incasso_oggi),      color: 'text-orange-400' },
   ] as StatCard[]) : []
 
-  // Report periodo
-  let periodoFrom: string = ''
-  let periodoTo: string = ''
-  let periodoLoading = false
-
-  function fmtDate(d: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  }
-
-  async function generaReportPeriodo() {
-    if (!periodoFrom || !periodoTo) return
-    periodoLoading = true
-    try {
-      reportData = await api.report.getPeriodo(periodoFrom, periodoTo)
-      reportOpen = true
-    } catch (e: any) {
-      console.error(e)
-    } finally {
-      periodoLoading = false
-    }
-  }
-
-  async function reportOggi() {
-    const s = fmtDate(new Date())
-    periodoFrom = s; periodoTo = s
-    await generaReportPeriodo()
-  }
-
-  async function reportSettimana() {
-    const oggi = new Date()
-    const lun = new Date(oggi)
-    lun.setDate(oggi.getDate() - ((oggi.getDay() + 6) % 7))
-    periodoFrom = fmtDate(lun); periodoTo = fmtDate(oggi)
-    await generaReportPeriodo()
-  }
-
-  async function reportAnnoCorrente() {
-    const oggi = new Date()
-    periodoFrom = `${oggi.getFullYear()}-01-01`; periodoTo = fmtDate(oggi)
-    await generaReportPeriodo()
-  }
-
   async function generaReport() {
     reportLoading = true
     try {
-      reportData = await api.report.getMensile(reportAnno, reportMese)
+      if (reportTipo === 'mensile') {
+        reportData = await api.report.getMensile(reportAnno, reportMese)
+      } else if (reportTipo === 'giornaliero') {
+        reportData = await api.report.getPeriodo(reportDataFrom, reportDataFrom)
+      } else if (reportTipo === 'annuale') {
+        reportData = await api.report.getPeriodo(`${reportAnno}-01-01`, `${reportAnno}-12-31`)
+      } else if (reportTipo === 'personalizzato') {
+        reportData = await api.report.getPeriodo(reportDataFrom, reportDataTo)
+      }
       reportOpen = true
     } catch (e: any) {
       console.error(e)
@@ -86,6 +55,10 @@
       reportLoading = false
     }
   }
+
+  $: generaDisabled = reportLoading ||
+    (reportTipo === 'giornaliero' && !reportDataFrom) ||
+    (reportTipo === 'personalizzato' && (!reportDataFrom || !reportDataTo))
 </script>
 
 <div class="p-6 space-y-6">
@@ -136,62 +109,60 @@
       </div>
     {/if}
 
-    <!-- Report mensile -->
+    <!-- Report -->
     <div class="card p-4">
-      <p class="text-sm font-medium text-gray-300 mb-3">Report mensile</p>
-      <div class="flex items-center gap-3">
-        <select bind:value={reportMese} class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
-          {#each mesi.slice(1) as m, i}
-            <option value={i + 1}>{m}</option>
-          {/each}
-        </select>
-        <input
-          type="number"
-          bind:value={reportAnno}
-          min="2020" max="2099"
-          class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white w-20 focus:outline-none focus:border-brand-500"
-        />
-        <button on:click={generaReport} disabled={reportLoading} class="btn-primary text-sm">
-          {reportLoading ? 'Generazione…' : 'Genera report'}
-        </button>
-      </div>
-    </div>
+      <p class="text-sm font-medium text-gray-300 mb-3">Report</p>
 
-    <!-- Report per periodo -->
-    <div class="card p-4">
-      <p class="text-sm font-medium text-gray-300 mb-3">Report per periodo</p>
-
-      <!-- Pulsanti rapidi -->
+      <!-- Selezione tipo -->
       <div class="flex gap-2 mb-3 flex-wrap">
-        <button on:click={reportOggi} disabled={periodoLoading} class="btn-secondary text-xs">
-          Oggi
-        </button>
-        <button on:click={reportSettimana} disabled={periodoLoading} class="btn-secondary text-xs">
-          Questa settimana
-        </button>
-        <button on:click={reportAnnoCorrente} disabled={periodoLoading} class="btn-secondary text-xs">
-          Quest'anno
-        </button>
+        {#each [['giornaliero', 'Giornaliero'], ['mensile', 'Mensile'], ['annuale', 'Annuale'], ['personalizzato', 'Personalizzato']] as [tipo, label]}
+          <button
+            on:click={() => reportTipo = tipo as typeof reportTipo}
+            class="text-xs px-3 py-1.5 rounded border transition-colors {reportTipo === tipo ? 'bg-brand-600 border-brand-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'}"
+          >
+            {label}
+          </button>
+        {/each}
       </div>
 
-      <!-- Date personalizzate + Genera -->
+      <!-- Controlli in base al tipo -->
       <div class="flex items-end gap-3 flex-wrap">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-gray-400">Dal</span>
-          <input type="date" bind:value={periodoFrom}
+        {#if reportTipo === 'giornaliero'}
+          <input type="date" bind:value={reportDataFrom}
             class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
-        </div>
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-gray-400">Al</span>
-          <input type="date" bind:value={periodoTo}
-            class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
-        </div>
-        <button
-          on:click={generaReportPeriodo}
-          disabled={periodoLoading || !periodoFrom || !periodoTo}
-          class="btn-primary text-sm"
-        >
-          {periodoLoading ? 'Generazione…' : 'Genera report'}
+        {:else if reportTipo === 'mensile'}
+          <select bind:value={reportMese} class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
+            {#each mesi.slice(1) as m, i}
+              <option value={i + 1}>{m}</option>
+            {/each}
+          </select>
+          <input
+            type="number"
+            bind:value={reportAnno}
+            min="2020" max="2099"
+            class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white w-20 focus:outline-none focus:border-brand-500"
+          />
+        {:else if reportTipo === 'annuale'}
+          <input
+            type="number"
+            bind:value={reportAnno}
+            min="2020" max="2099"
+            class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white w-20 focus:outline-none focus:border-brand-500"
+          />
+        {:else if reportTipo === 'personalizzato'}
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-gray-400">Dal</span>
+            <input type="date" bind:value={reportDataFrom}
+              class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-gray-400">Al</span>
+            <input type="date" bind:value={reportDataTo}
+              class="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+          </div>
+        {/if}
+        <button on:click={generaReport} disabled={generaDisabled} class="btn-primary text-sm">
+          {reportLoading ? 'Generazione…' : 'Genera report'}
         </button>
       </div>
     </div>
