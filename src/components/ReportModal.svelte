@@ -18,9 +18,9 @@
 
 {#if open && report}
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+  <div class="report-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
        on:click={handleBackdrop} on:keydown={() => {}}>
-    <div id="report-modal" class="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+    <div class="report-modal-content bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
 
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800">
@@ -77,7 +77,7 @@
         <!-- Tabella fatture -->
         {#if report.lista_fatture.length > 0}
           <div>
-            <h3 class="text-sm font-semibold text-gray-300 mb-2">Fatture del mese</h3>
+            <h3 class="text-sm font-semibold text-gray-300 mb-2">Fatture del periodo</h3>
             <div class="card overflow-hidden">
               <table class="w-full text-sm">
                 <thead class="bg-gray-800/60">
@@ -103,38 +103,28 @@
           </div>
         {/if}
 
-        <!-- Ricambi sotto scorta -->
-        {#if report.ricambi_sotto_scorta.length > 0}
-          <div>
-            <h3 class="text-sm font-semibold text-red-400 mb-2">
-              Ricambi sotto scorta ({report.ricambi_sotto_scorta.length})
-            </h3>
-            <div class="card overflow-hidden">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-800/60">
-                  <tr class="text-xs text-gray-400">
-                    <th class="text-left px-3 py-2 font-medium">Codice</th>
-                    <th class="text-left px-3 py-2 font-medium">Descrizione</th>
-                    <th class="text-right px-3 py-2 font-medium">Giacenza</th>
-                    <th class="text-right px-3 py-2 font-medium">Minima</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-800">
-                  {#each report.ricambi_sotto_scorta as r}
-                    <tr>
-                      <td class="px-3 py-2 font-mono text-xs text-gray-400">{r.codice_interno}</td>
-                      <td class="px-3 py-2 text-gray-300">{r.descrizione}</td>
-                      <td class="px-3 py-2 text-right text-red-400 font-medium">{r.giacenza}</td>
-                      <td class="px-3 py-2 text-right text-gray-500">{r.giacenza_minima}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        {/if}
-
       </div>
     </div>
   </div>
 {/if}
+
+<style>
+  @media print {
+    .report-modal-overlay {
+      position: static !important;
+      background: white !important;
+      backdrop-filter: none !important;
+      padding: 0 !important;
+    }
+    .report-modal-content {
+      position: static !important;
+      max-height: none !important;
+      overflow: visible !important;
+      background: white !important;
+      color: black !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+  }
+</style>
