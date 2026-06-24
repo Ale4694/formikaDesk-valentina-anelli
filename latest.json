@@ -1,5 +1,5 @@
 {
-  "version": "1.0.58",
-  "notes": "IBAN azienda, fix stampa fattura compatta, badge FATTURA IMMEDIATA, stampa report funzionante, stato bozza eliminato",
-  "download_url": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/download/v1.0.58-valentina/AutoParts.Gestionale_1.0.58_x64-setup.exe"
+  "version": "1.0.59",
+  "notes": "Fix stampa fattura - bordi tabella corretti e colori esatti",
+  "download_url": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/download/v1.0.59-valentina/AutoParts.Gestionale_1.0.59_x64-setup.exe"
 }
