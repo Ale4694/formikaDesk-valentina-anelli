@@ -668,7 +668,9 @@
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 0;
+    border: 0.8pt solid #1a1a1a;
   }
+
 
   :global(#print-overlay) .doc-table th {
     background: #B91C1C;
@@ -677,8 +679,10 @@
     font-weight: bold;
     padding: 1.5mm 2mm;
     text-align: left;
-    border: 0.5pt solid #8b0000;
+    border: 0.5pt solid #ccc;
+    border-bottom: 0.8pt solid #8b0000;
   }
+
 
   :global(#print-overlay) .doc-table td {
     padding: 1.5mm 2mm;
@@ -853,6 +857,7 @@
   :global(#print-overlay) .row-causale {
     display: flex;
     border: 0.8pt solid #1a1a1a;
+    border-bottom: none;
     margin-bottom: 1.5mm;
     overflow: hidden;
   }
@@ -1036,6 +1041,12 @@
   }
 
   @media print {
+    :global(#print-overlay) * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
     :global(#print-overlay) .doc-fattura {
       transform: scale(0.92);
       transform-origin: top left;
