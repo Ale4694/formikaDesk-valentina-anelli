@@ -103,10 +103,10 @@ export const api = {
     updateStato: (id: number, stato: string) => call<OrdineCompleto>('update_stato_ordine', { id, stato }),
   },
   report: {
-    getMensile: (anno: number, mese: number) => call<ReportMensile>('get_report_mensile', { anno, mese }),
-    getGiornaliero: (giorno: string) => call<ReportMensile>('get_report_giornaliero', { giorno }),
-    getAnnuale: (anno: number) => call<ReportMensile>('get_report_annuale', { anno }),
-    getPersonalizzato: (dal: string, al: string) => call<ReportMensile>('get_report_personalizzato', { dal, al }),
+    getMensile: (anno: number, mese: number, tipoDocumento?: string) => call<ReportMensile>('get_report_mensile', { anno, mese, tipoDocumento }),
+    getGiornaliero: (giorno: string, tipoDocumento?: string) => call<ReportMensile>('get_report_giornaliero', { giorno, tipoDocumento }),
+    getAnnuale: (anno: number, tipoDocumento?: string) => call<ReportMensile>('get_report_annuale', { anno, tipoDocumento }),
+    getPersonalizzato: (dal: string, al: string, tipoDocumento?: string) => call<ReportMensile>('get_report_personalizzato', { dal, al, tipoDocumento }),
   },
   cassa: {
     getAll: () => call<ScontrinoCompleto[]>('get_all_scontrini'),

@@ -18,6 +18,19 @@
   let reportDataFrom: string = ''
   let reportDataTo: string = ''
 
+  const tipiFilter = ['tutti', 'fattura', 'ddt', 'preventivo', 'nota_credito', 'vendita_banco', 'buono', 'fattura_differita', 'ddt_fornitore'] as const
+  const tipoLabel: Record<string, string> = {
+    fattura: 'Fattura',
+    preventivo: 'Preventivo',
+    ddt: 'DDT',
+    nota_credito: 'Nota credito',
+    vendita_banco: 'Vendita Banco',
+    buono: 'Buono',
+    fattura_differita: 'Fattura Differita',
+    ddt_fornitore: 'DDT Fornitore',
+  }
+  let tipoAttivo: typeof tipiFilter[number] = 'tutti'
+
   const mesi = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
                  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 
@@ -40,13 +53,13 @@
     reportLoading = true
     try {
       if (reportTipo === 'mensile') {
-        reportData = await api.report.getMensile(reportAnno, reportMese)
+        reportData = await api.report.getMensile(reportAnno, reportMese, tipoAttivo)
       } else if (reportTipo === 'giornaliero') {
-        reportData = await api.report.getGiornaliero(reportDataFrom)
+        reportData = await api.report.getGiornaliero(reportDataFrom, tipoAttivo)
       } else if (reportTipo === 'annuale') {
-        reportData = await api.report.getAnnuale(reportAnno)
+        reportData = await api.report.getAnnuale(reportAnno, tipoAttivo)
       } else if (reportTipo === 'personalizzato') {
-        reportData = await api.report.getPersonalizzato(reportDataFrom, reportDataTo)
+        reportData = await api.report.getPersonalizzato(reportDataFrom, reportDataTo, tipoAttivo)
       }
       reportOpen = true
     } catch (e: any) {
@@ -109,12 +122,28 @@
       </div>
     {/if}
 
-    <!-- Report -->
-    <div class="card p-4">
-      <p class="text-sm font-medium text-gray-300 mb-3">Report</p>
+     <!-- Report -->
+     <div class="card p-4">
+       <p class="text-sm font-medium text-gray-300 mb-3">Report</p>
+ 
+       <!-- Filtro tipo documento -->
+       <div class="flex gap-1.5 flex-wrap mb-4">
+         {#each tipiFilter as t}
+           <button
+             class="px-3 py-1 rounded-full text-xs font-medium transition-colors duration-100
+               {tipoAttivo === t
+                 ? 'bg-gray-600 text-white'
+                 : 'bg-gray-800/60 text-gray-500 hover:text-gray-300 hover:bg-gray-800'}"
+             on:click={() => { tipoAttivo = t; if (reportOpen) generaReport() }}
+           >
+             {t === 'tutti' ? 'Tutti i tipi' : (tipoLabel[t] ?? t)}
+           </button>
+         {/each}
+       </div>
+ 
+       <!-- Selezione tipo -->
+       <div class="flex gap-2 mb-3 flex-wrap">
 
-      <!-- Selezione tipo -->
-      <div class="flex gap-2 mb-3 flex-wrap">
         {#each [['giornaliero', 'Giornaliero'], ['mensile', 'Mensile'], ['annuale', 'Annuale'], ['personalizzato', 'Personalizzato']] as [tipo, label]}
           <button
             on:click={() => reportTipo = tipo as typeof reportTipo}
