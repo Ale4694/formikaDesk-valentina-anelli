@@ -36,6 +36,7 @@
   let bolliArt15 = ''
   let speseVarie = 0
   let speseIncasso = 0
+  let mostraIban = true
 
   $: mostraTrasportoCore = ['ddt', 'fattura', 'nota_credito', 'vendita_banco'].includes(tipoDocumento)
   $: mostraTrasportoGruppoA = tipoDocumento === 'buono' || tipoDocumento === 'preventivo'
@@ -54,6 +55,7 @@
     bolliArt15 = ''
     speseVarie = 0
     speseIncasso = 0
+    mostraIban = true
   }
 
   // Fattura differita — DDT selezionati
@@ -299,6 +301,7 @@
         bolliArt15 = d.bolli_art15 ?? ''
         speseVarie = d.spese_varie ?? 0
         speseIncasso = d.spese_incasso ?? 0
+        mostraIban = d.mostra_iban ?? true
         if (d.cliente_id) {
           const c = $clienti.find(c => c.id === d.cliente_id)
           if (c) clienteTA = { query: c.ragione_sociale, results: [], open: false }
@@ -459,6 +462,7 @@
         bolli_art15: mostraTrasportoCore ? (bolliArt15 || null) : null,
         spese_varie: mostraTrasportoCore ? speseVarie : null,
         spese_incasso: mostraTrasportoCore ? speseIncasso : null,
+        mostra_iban: mostraTrasportoCore ? mostraIban : null,
         righe: righe.map(({ _id, ...r }) => r),
       }
       if (editMode && editId !== null) {
@@ -661,6 +665,12 @@
           <div>
             <label class="label">Bolli es. art.15</label>
             <input class="input" bind:value={bolliArt15} />
+          </div>
+          <div class="flex items-end pb-1.5">
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input type="checkbox" class="rounded border-gray-600" bind:checked={mostraIban} />
+              Mostra IBAN in stampa
+            </label>
           </div>
         </div>
 

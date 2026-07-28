@@ -140,6 +140,7 @@ pub async fn create_documento(
     let n_colli = doc.n_colli.unwrap_or(0);
     let spese_varie = doc.spese_varie.unwrap_or(0.0);
     let spese_incasso = doc.spese_incasso.unwrap_or(0.0);
+    let mostra_iban = doc.mostra_iban.unwrap_or(true);
 
     let mut tx = state.db.begin().await?;
 
@@ -149,9 +150,9 @@ pub async fn create_documento(
          is_fattura_differita, ddt_collegati, stato,
          vettore, data_ora_ritiro, n_colli, aspetto_esteriore_beni, porto,
          causale_trasporto, trasporto_a_cura, banca_appoggio, agente, bolli_art15,
-         spese_varie, spese_incasso)
+         spese_varie, spese_incasso, mostra_iban)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confermato',
-         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&doc.tipo_documento)
     .bind(&doc.numero)
@@ -178,6 +179,7 @@ pub async fn create_documento(
     .bind(&doc.bolli_art15)
     .bind(spese_varie)
     .bind(spese_incasso)
+    .bind(mostra_iban)
     .execute(&mut *tx)
     .await?
     .last_insert_rowid();
@@ -415,6 +417,7 @@ pub async fn update_documento(
     let n_colli = doc.n_colli.unwrap_or(0);
     let spese_varie = doc.spese_varie.unwrap_or(0.0);
     let spese_incasso = doc.spese_incasso.unwrap_or(0.0);
+    let mostra_iban = doc.mostra_iban.unwrap_or(true);
 
     sqlx::query(
         "UPDATE documenti SET tipo_documento=?, numero=?, data=?, cliente_id=?, fornitore_id=?,
@@ -422,7 +425,7 @@ pub async fn update_documento(
          scadenza_pagamento=?, giorni_pagamento=?, is_fattura_differita=?, ddt_collegati=?,
          vettore=?, data_ora_ritiro=?, n_colli=?, aspetto_esteriore_beni=?, porto=?,
          causale_trasporto=?, trasporto_a_cura=?, banca_appoggio=?, agente=?, bolli_art15=?,
-         spese_varie=?, spese_incasso=?,
+         spese_varie=?, spese_incasso=?, mostra_iban=?,
          updated_at=datetime('now') WHERE id=?",
     )
     .bind(&doc.tipo_documento)
@@ -450,6 +453,7 @@ pub async fn update_documento(
     .bind(&doc.bolli_art15)
     .bind(spese_varie)
     .bind(spese_incasso)
+    .bind(mostra_iban)
     .bind(id)
     .execute(&mut *tx)
     .await?;

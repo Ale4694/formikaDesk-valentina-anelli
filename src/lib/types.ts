@@ -138,6 +138,7 @@ export interface Documento {
   bolli_art15: string | null
   spese_varie: number | null
   spese_incasso: number | null
+  mostra_iban: boolean
 }
 
 export interface RigaDocumento {
@@ -186,6 +187,7 @@ export interface NuovoDocumento {
   bolli_art15?: string | null
   spese_varie?: number | null
   spese_incasso?: number | null
+  mostra_iban?: boolean | null
   righe: NuovaRigaDocumento[]
 }
 

@@ -436,7 +436,7 @@
         <!-- SEZIONE 8: IBAN -->
          <div class="row-iban">
            <div class="cell-label">IBAN PER BONIFICO</div>
-           <div class="cell-body iban-val">{$appConfig?.intestazione?.iban ?? ''}</div>
+           <div class="cell-body iban-val">{#if doc.mostra_iban !== false}{$appConfig?.intestazione?.iban ?? ''}{:else}&nbsp;{/if}</div>
          </div>
 
       </div>

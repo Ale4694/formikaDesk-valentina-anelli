@@ -150,6 +150,7 @@ pub struct Documento {
     pub bolli_art15: Option<String>,
     pub spese_varie: Option<f64>,
     pub spese_incasso: Option<f64>,
+    pub mostra_iban: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -174,6 +175,7 @@ pub struct NuovoDocumento {
     pub bolli_art15: Option<String>,
     pub spese_varie: Option<f64>,
     pub spese_incasso: Option<f64>,
+    pub mostra_iban: Option<bool>,
     pub righe: Vec<NuovaRigaDocumento>,
 }
 
