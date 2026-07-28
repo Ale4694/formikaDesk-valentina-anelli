@@ -3,6 +3,11 @@ use crate::models::{ArticoloStorico, Documento, DocumentoCompleto, NuovoDocument
 use chrono::NaiveDate;
 use tauri::State;
 
+/// Causale di default storica: Buono/Preventivo stampavano "CONSEGNA", gli altri tipi "Vendita".
+fn causale_trasporto_default(tipo: &str) -> &'static str {
+    if tipo == "buono" || tipo == "preventivo" { "CONSEGNA" } else { "Vendita" }
+}
+
 #[tauri::command]
 pub async fn get_all_documenti(state: State<'_, AppState>) -> Result<Vec<Documento>, AppError> {
     let docs = sqlx::query_as::<_, Documento>(
@@ -129,13 +134,24 @@ pub async fn create_documento(
         .as_ref()
         .map(|ids| serde_json::to_string(ids).unwrap_or_default());
 
+    let causale_trasporto = doc.causale_trasporto.clone()
+        .unwrap_or_else(|| causale_trasporto_default(&doc.tipo_documento).to_string());
+    let trasporto_a_cura = doc.trasporto_a_cura.clone().unwrap_or_else(|| "Destinatario".to_string());
+    let n_colli = doc.n_colli.unwrap_or(0);
+    let spese_varie = doc.spese_varie.unwrap_or(0.0);
+    let spese_incasso = doc.spese_incasso.unwrap_or(0.0);
+
     let mut tx = state.db.begin().await?;
 
     let doc_id = sqlx::query(
         "INSERT INTO documenti (tipo_documento, numero, data, cliente_id, fornitore_id, note,
          totale_imponibile, totale_iva, totale_documento, scadenza_pagamento, giorni_pagamento,
-         is_fattura_differita, ddt_collegati, stato)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confermato')",
+         is_fattura_differita, ddt_collegati, stato,
+         vettore, data_ora_ritiro, n_colli, aspetto_esteriore_beni, porto,
+         causale_trasporto, trasporto_a_cura, banca_appoggio, agente, bolli_art15,
+         spese_varie, spese_incasso)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confermato',
+         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&doc.tipo_documento)
     .bind(&doc.numero)
@@ -150,6 +166,18 @@ pub async fn create_documento(
     .bind(giorni)
     .bind(is_fattura_differita)
     .bind(&ddt_collegati_json)
+    .bind(&doc.vettore)
+    .bind(&doc.data_ora_ritiro)
+    .bind(n_colli)
+    .bind(&doc.aspetto_esteriore_beni)
+    .bind(&doc.porto)
+    .bind(&causale_trasporto)
+    .bind(&trasporto_a_cura)
+    .bind(&doc.banca_appoggio)
+    .bind(&doc.agente)
+    .bind(&doc.bolli_art15)
+    .bind(spese_varie)
+    .bind(spese_incasso)
     .execute(&mut *tx)
     .await?
     .last_insert_rowid();
@@ -381,10 +409,20 @@ pub async fn update_documento(
         .as_ref()
         .map(|ids| serde_json::to_string(ids).unwrap_or_default());
 
+    let causale_trasporto = doc.causale_trasporto.clone()
+        .unwrap_or_else(|| causale_trasporto_default(&doc.tipo_documento).to_string());
+    let trasporto_a_cura = doc.trasporto_a_cura.clone().unwrap_or_else(|| "Destinatario".to_string());
+    let n_colli = doc.n_colli.unwrap_or(0);
+    let spese_varie = doc.spese_varie.unwrap_or(0.0);
+    let spese_incasso = doc.spese_incasso.unwrap_or(0.0);
+
     sqlx::query(
         "UPDATE documenti SET tipo_documento=?, numero=?, data=?, cliente_id=?, fornitore_id=?,
          note=?, totale_imponibile=?, totale_iva=?, totale_documento=?,
          scadenza_pagamento=?, giorni_pagamento=?, is_fattura_differita=?, ddt_collegati=?,
+         vettore=?, data_ora_ritiro=?, n_colli=?, aspetto_esteriore_beni=?, porto=?,
+         causale_trasporto=?, trasporto_a_cura=?, banca_appoggio=?, agente=?, bolli_art15=?,
+         spese_varie=?, spese_incasso=?,
          updated_at=datetime('now') WHERE id=?",
     )
     .bind(&doc.tipo_documento)
@@ -400,6 +438,18 @@ pub async fn update_documento(
     .bind(giorni)
     .bind(is_fattura_differita)
     .bind(&ddt_collegati_json)
+    .bind(&doc.vettore)
+    .bind(&doc.data_ora_ritiro)
+    .bind(n_colli)
+    .bind(&doc.aspetto_esteriore_beni)
+    .bind(&doc.porto)
+    .bind(&causale_trasporto)
+    .bind(&trasporto_a_cura)
+    .bind(&doc.banca_appoggio)
+    .bind(&doc.agente)
+    .bind(&doc.bolli_art15)
+    .bind(spese_varie)
+    .bind(spese_incasso)
     .bind(id)
     .execute(&mut *tx)
     .await?;

@@ -138,6 +138,18 @@ pub struct Documento {
     pub is_fattura_differita: i64,
     pub fatturato: i64,
     pub pdf_allegato: Option<String>,
+    pub vettore: Option<String>,
+    pub data_ora_ritiro: Option<String>,
+    pub n_colli: Option<i64>,
+    pub aspetto_esteriore_beni: Option<String>,
+    pub porto: Option<String>,
+    pub causale_trasporto: Option<String>,
+    pub trasporto_a_cura: Option<String>,
+    pub banca_appoggio: Option<String>,
+    pub agente: Option<String>,
+    pub bolli_art15: Option<String>,
+    pub spese_varie: Option<f64>,
+    pub spese_incasso: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -150,6 +162,18 @@ pub struct NuovoDocumento {
     pub note: Option<String>,
     pub giorni_pagamento: Option<i64>,
     pub ddt_collegati: Option<Vec<i64>>,
+    pub vettore: Option<String>,
+    pub data_ora_ritiro: Option<String>,
+    pub n_colli: Option<i64>,
+    pub aspetto_esteriore_beni: Option<String>,
+    pub porto: Option<String>,
+    pub causale_trasporto: Option<String>,
+    pub trasporto_a_cura: Option<String>,
+    pub banca_appoggio: Option<String>,
+    pub agente: Option<String>,
+    pub bolli_art15: Option<String>,
+    pub spese_varie: Option<f64>,
+    pub spese_incasso: Option<f64>,
     pub righe: Vec<NuovaRigaDocumento>,
 }
 

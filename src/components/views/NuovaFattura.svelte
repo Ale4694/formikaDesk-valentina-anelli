@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte'
-  import { clienti, ricambi, documenti, formatCurrency, setError, currentView, editDocumentoId } from '../../lib/stores'
+  import { clienti, fornitori, ricambi, documenti, formatCurrency, setError, currentView, editDocumentoId } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente } from '../../lib/types'
 
@@ -15,6 +15,46 @@
   let touched = false
   let editMode = false
   let editId: number | null = null
+
+  // DDT Fornitore: creato solo tramite import PDF, qui è modificabile ma non riclassificabile
+  let fornitoreIdDdt: number | null = null
+  $: fornitoreNomeDdt = fornitoreIdDdt != null
+    ? ($fornitori.find(f => f.id === fornitoreIdDdt)?.ragione_sociale ?? '—')
+    : '—'
+
+  // Dati trasporto / pagamento
+  let giorniPagamento = 30
+  let vettore = ''
+  let dataOraRitiro = ''
+  let nColli = 0
+  let aspettoEsterioreBeni = ''
+  let porto = ''
+  let causaleTrasporto = ''
+  let trasportoACura = 'Destinatario'
+  let bancaAppoggio = ''
+  let agente = ''
+  let bolliArt15 = ''
+  let speseVarie = 0
+  let speseIncasso = 0
+
+  $: mostraTrasportoCore = ['ddt', 'fattura', 'nota_credito', 'vendita_banco'].includes(tipoDocumento)
+  $: mostraTrasportoGruppoA = tipoDocumento === 'buono' || tipoDocumento === 'preventivo'
+  $: mostraGiorniPagamento = tipoDocumento !== 'vendita_banco' && tipoDocumento !== 'buono' && tipoDocumento !== 'fattura_differita'
+
+  function resetTrasporto() {
+    vettore = ''
+    dataOraRitiro = ''
+    nColli = 0
+    aspettoEsterioreBeni = ''
+    porto = ''
+    causaleTrasporto = ''
+    trasportoACura = 'Destinatario'
+    bancaAppoggio = ''
+    agente = ''
+    bolliArt15 = ''
+    speseVarie = 0
+    speseIncasso = 0
+  }
 
   // Fattura differita — DDT selezionati
   let ddtSelezionati: number[] = []
@@ -244,7 +284,21 @@
         numero = d.numero
         data = d.data
         clienteId = d.cliente_id
+        fornitoreIdDdt = d.fornitore_id
         note = d.note ?? ''
+        giorniPagamento = d.giorni_pagamento ?? 30
+        vettore = d.vettore ?? ''
+        dataOraRitiro = d.data_ora_ritiro ?? ''
+        nColli = d.n_colli ?? 0
+        aspettoEsterioreBeni = d.aspetto_esteriore_beni ?? ''
+        porto = d.porto ?? ''
+        causaleTrasporto = d.causale_trasporto ?? ''
+        trasportoACura = d.trasporto_a_cura ?? 'Destinatario'
+        bancaAppoggio = d.banca_appoggio ?? ''
+        agente = d.agente ?? ''
+        bolliArt15 = d.bolli_art15 ?? ''
+        speseVarie = d.spese_varie ?? 0
+        speseIncasso = d.spese_incasso ?? 0
         if (d.cliente_id) {
           const c = $clienti.find(c => c.id === d.cliente_id)
           if (c) clienteTA = { query: c.ragione_sociale, results: [], open: false }
@@ -279,6 +333,8 @@
     numero = computeNumero(tipoDocumento)
     ddtSelezionati = []
     righe = []
+    resetTrasporto()
+    giorniPagamento = 30
     // Per vendita_banco: cerca o lascia null il cliente generico
     if (tipoDocumento === 'vendita_banco') {
       const banco = $clienti.find(c => c.ragione_sociale === 'CLIENTE AL BANCO')
@@ -329,7 +385,7 @@
 
   // --- Validazione reattiva ---
   $: errNumero  = touched && !numero.trim() ? 'Numero obbligatorio' : ''
-  $: errCliente = touched && tipoDocumento !== 'preventivo' && tipoDocumento !== 'buono' && !clienteId
+  $: errCliente = touched && tipoDocumento !== 'preventivo' && tipoDocumento !== 'buono' && tipoDocumento !== 'ddt_fornitore' && !clienteId
     ? 'Seleziona un cliente'
     : ''
   $: errRighe   = touched
@@ -385,10 +441,24 @@
         numero,
         data,
         cliente_id: clienteId,
+        fornitore_id: tipoDocumento === 'ddt_fornitore' ? fornitoreIdDdt : null,
         note: note || null,
+        giorni_pagamento: mostraGiorniPagamento ? giorniPagamento : null,
         ddt_collegati: tipoDocumento === 'fattura_differita' && ddtSelezionati.length > 0
           ? ddtSelezionati
           : null,
+        vettore: mostraTrasportoCore ? (vettore || null) : null,
+        data_ora_ritiro: (mostraTrasportoCore || mostraTrasportoGruppoA) ? (dataOraRitiro || null) : null,
+        n_colli: (mostraTrasportoCore || mostraTrasportoGruppoA) ? nColli : null,
+        aspetto_esteriore_beni: (mostraTrasportoCore || mostraTrasportoGruppoA) ? (aspettoEsterioreBeni || null) : null,
+        porto: mostraTrasportoCore ? (porto || null) : null,
+        causale_trasporto: mostraTrasportoCore ? (causaleTrasporto || null) : null,
+        trasporto_a_cura: mostraTrasportoCore ? (trasportoACura || null) : null,
+        banca_appoggio: mostraTrasportoCore ? (bancaAppoggio || null) : null,
+        agente: mostraTrasportoCore ? (agente || null) : null,
+        bolli_art15: mostraTrasportoCore ? (bolliArt15 || null) : null,
+        spese_varie: mostraTrasportoCore ? speseVarie : null,
+        spese_incasso: mostraTrasportoCore ? speseIncasso : null,
         righe: righe.map(({ _id, ...r }) => r),
       }
       if (editMode && editId !== null) {
@@ -416,20 +486,27 @@
 
   <!-- Tipo documento -->
   <div class="card p-4">
-    <label class="label mb-2 block">Tipo documento</label>
-    <div class="flex flex-wrap gap-2">
-      {#each tipiDisponibili as t}
-        <button
-          class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
-            {tipoDocumento === t.value
-              ? 'bg-brand-600 border-brand-500 text-white'
-              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500'}"
-          on:click={() => { tipoDocumento = t.value; onTipoChange() }}
-        >
-          {t.label}
-        </button>
-      {/each}
-    </div>
+    {#if tipoDocumento === 'ddt_fornitore'}
+      <div class="flex items-center gap-2 text-xs">
+        <span class="px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-300 font-medium">DDT Fornitore</span>
+        <span class="text-gray-500">Documento creato tramite import PDF — il tipo non è modificabile da qui.</span>
+      </div>
+    {:else}
+      <label class="label mb-2 block">Tipo documento</label>
+      <div class="flex flex-wrap gap-2">
+        {#each tipiDisponibili as t}
+          <button
+            class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
+              {tipoDocumento === t.value
+                ? 'bg-brand-600 border-brand-500 text-white'
+                : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500'}"
+            on:click={() => { tipoDocumento = t.value; onTipoChange() }}
+          >
+            {t.label}
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- Testata -->
@@ -451,16 +528,22 @@
         <input class="input" type="date" bind:value={data}/>
       </div>
 
-      <!-- Cliente -->
+      <!-- Cliente / Fornitore -->
       <div class="col-span-2">
         <label class="label">
-          Cliente
-          {#if tipoDocumento !== 'preventivo' && tipoDocumento !== 'buono'}*{/if}
+          {tipoDocumento === 'ddt_fornitore' ? 'Fornitore' : 'Cliente'}
+          {#if tipoDocumento !== 'preventivo' && tipoDocumento !== 'buono' && tipoDocumento !== 'ddt_fornitore'}*{/if}
         </label>
         {#if tipoDocumento === 'vendita_banco'}
           <input
             class="input bg-gray-900 text-gray-500 cursor-not-allowed"
             value="CLIENTE AL BANCO"
+            disabled
+          />
+        {:else if tipoDocumento === 'ddt_fornitore'}
+          <input
+            class="input bg-gray-900 text-gray-500 cursor-not-allowed"
+            value={fornitoreNomeDdt}
             disabled
           />
         {:else}
@@ -499,11 +582,101 @@
       </div>
     </div>
 
+    {#if mostraGiorniPagamento}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label class="label">Giorni pagamento</label>
+          <input class="input" type="number" min="0" step="1" bind:value={giorniPagamento} />
+        </div>
+      </div>
+    {/if}
+
     <div>
       <label class="label">Note</label>
       <textarea class="input resize-none" rows="2" bind:value={note}></textarea>
     </div>
   </div>
+
+  <!-- Dati trasporto -->
+  {#if mostraTrasportoCore || mostraTrasportoGruppoA}
+    <div class="card p-5 space-y-4">
+      <h2 class="text-sm font-semibold text-white">Dati trasporto</h2>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <label class="label">N° Colli</label>
+          <input class="input" type="number" min="0" step="1" bind:value={nColli} />
+        </div>
+        <div class="col-span-2">
+          <label class="label">Aspetto esteriore beni</label>
+          <input class="input" bind:value={aspettoEsterioreBeni} placeholder="es. Scatole integre" />
+        </div>
+        <div>
+          <label class="label">{mostraTrasportoGruppoA ? 'Alle ore' : 'Data e ora ritiro'}</label>
+          <input
+            class="input"
+            type={mostraTrasportoGruppoA ? 'time' : 'datetime-local'}
+            bind:value={dataOraRitiro}
+          />
+        </div>
+      </div>
+
+      {#if mostraTrasportoCore}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="label">Vettore</label>
+            <input class="input" bind:value={vettore} placeholder="es. Corriere / mezzo proprio" />
+          </div>
+          <div>
+            <label class="label">Porto</label>
+            <select class="input" bind:value={porto}>
+              <option value="">—</option>
+              <option value="Franco">Franco</option>
+              <option value="Assegnato">Assegnato</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Causale trasporto</label>
+            <input class="input" bind:value={causaleTrasporto} placeholder="Vendita" />
+          </div>
+          <div>
+            <label class="label">Trasporto a cura</label>
+            <select class="input" bind:value={trasportoACura}>
+              <option value="Destinatario">Destinatario</option>
+              <option value="Mittente">Mittente</option>
+              <option value="Vettore">Vettore</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="label">Banca d'appoggio</label>
+            <input class="input" bind:value={bancaAppoggio} />
+          </div>
+          <div>
+            <label class="label">Agente</label>
+            <input class="input" bind:value={agente} />
+          </div>
+          <div>
+            <label class="label">Bolli es. art.15</label>
+            <input class="input" bind:value={bolliArt15} />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="label">Spese varie €</label>
+            <input class="input" type="number" min="0" step="0.01" bind:value={speseVarie} />
+          </div>
+          <div>
+            <label class="label">Spese incasso €</label>
+            <input class="input" type="number" min="0" step="0.01" bind:value={speseIncasso} />
+          </div>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Selettore DDT per Fattura Differita -->
   {#if tipoDocumento === 'fattura_differita'}

@@ -42,6 +42,13 @@
   $: oraCorrente = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
   $: tipoLabel = doc ? (tipoLabelMap[doc.tipo_documento] ?? doc.tipo_documento.toUpperCase()) : ''
 
+  function formatDataOra(v: string | null | undefined): string | null {
+    if (!v) return null
+    const d = new Date(v)
+    if (isNaN(d.getTime())) return null
+    return d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
   onMount(() => {
     window.addEventListener('afterprint', () => printData.set(null))
   })
@@ -103,11 +110,11 @@
         <div class="row-pag-a">
           <div class="box-a box-pag-cell">
             <div class="cell-label">MODALITÀ PAGAMENTO</div>
-            <div class="cell-body"><span class="cell-val">RIMESSA DIRETTA</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.metodo_pagamento || 'RIMESSA DIRETTA'}</span></div>
           </div>
           <div class="box-a box-pag-cell">
             <div class="cell-label">CAUSALE</div>
-            <div class="cell-body"><span class="cell-val">CONSEGNA</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.causale_trasporto || 'CONSEGNA'}</span></div>
           </div>
         </div>
 
@@ -154,7 +161,7 @@
         <div class="row-footer1">
           <div class="footer1-trasp">
             <div class="cell-label">TRASP. A CURA</div>
-            <div class="cell-body"><span class="cell-val">Destinatario</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.trasporto_a_cura || 'Destinatario'}</span></div>
           </div>
           <div class="footer1-totale-label">TOTALE</div>
           <div class="footer1-totale-val">{formatCurrency(doc.totale_documento)}</div>
@@ -162,15 +169,15 @@
         <div class="row-footer2">
           <div class="footer2-aspetto">
             <div class="cell-label">ASPETTO ESTERIORE</div>
-            <div class="cell-body">&nbsp;</div>
+            <div class="cell-body">{#if doc.aspetto_esteriore_beni}<span class="cell-val">{doc.aspetto_esteriore_beni}</span>{:else}&nbsp;{/if}</div>
           </div>
           <div class="footer2-colli">
             <div class="cell-label">N° COLLI</div>
-            <div class="cell-body"><span class="cell-val">0</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.n_colli ?? 0}</span></div>
           </div>
           <div class="footer2-ore">
             <div class="cell-label">ALLE ORE</div>
-            <div class="cell-body"><span class="cell-val">{oraCorrente}</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.data_ora_ritiro || oraCorrente}</span></div>
           </div>
         </div>
 
@@ -249,7 +256,7 @@
                 </div>
                 <div>
                   <div class="doc-sub-label">AGENTE</div>
-                  <div class="doc-sub-val">&nbsp;</div>
+                  <div class="doc-sub-val">{#if doc.agente}{doc.agente}{:else}&nbsp;{/if}</div>
                 </div>
                 <div class="doc-pagina">Pag. 1 di 1</div>
               </div>
@@ -261,19 +268,19 @@
         <div class="row-causale">
           <div class="caus-cell" style="width:28%">
             <div class="cell-label">CAUSALE DEL TRASPORTO</div>
-            <div class="cell-body"><span class="cell-val">Vendita</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.causale_trasporto || 'Vendita'}</span></div>
           </div>
           <div class="caus-cell" style="width:25%">
             <div class="cell-label">MODALITÀ PAGAMENTO</div>
-            <div class="cell-body"><span class="cell-val">RIMESSA DIRETTA</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.metodo_pagamento || 'RIMESSA DIRETTA'}</span></div>
           </div>
           <div class="caus-cell" style="width:27%">
             <div class="cell-label">BANCA D'APPOGGIO</div>
-            <div class="cell-body">&nbsp;</div>
+            <div class="cell-body">{#if doc.banca_appoggio}<span class="cell-val">{doc.banca_appoggio}</span>{:else}&nbsp;{/if}</div>
           </div>
           <div class="caus-cell" style="width:20%; border-right:none">
             <div class="cell-label">SCADENZE</div>
-            <div class="cell-body">&nbsp;</div>
+            <div class="cell-body">{#if doc.scadenza_pagamento}<span class="cell-val">{formatDate(doc.scadenza_pagamento)}</span>{:else}&nbsp;{/if}</div>
           </div>
         </div>
 
@@ -327,11 +334,11 @@
           </div>
           <div class="spese-cell">
             <div class="spese-label">BOLLI ES. ART.15</div>
-            <div class="spese-val">&nbsp;</div>
+            <div class="spese-val">{#if doc.bolli_art15}{doc.bolli_art15}{:else}&nbsp;{/if}</div>
           </div>
           <div class="spese-cell">
             <div class="spese-label">SPESE VARIE</div>
-            <div class="spese-val">&nbsp;</div>
+            <div class="spese-val">{#if doc.spese_varie}{formatCurrency(doc.spese_varie)}{:else}&nbsp;{/if}</div>
           </div>
           <div class="spese-cell">
             <div class="spese-label">SCONTO</div>
@@ -339,7 +346,7 @@
           </div>
           <div class="spese-cell">
             <div class="spese-label">SPESE INCASSO</div>
-            <div class="spese-val">&nbsp;</div>
+            <div class="spese-val">{#if doc.spese_incasso}{formatCurrency(doc.spese_incasso)}{:else}&nbsp;{/if}</div>
           </div>
           <div class="spese-cell" style="border-right:none">
             <div class="spese-label">TOTALE NETTO</div>
@@ -390,27 +397,27 @@
         <div class="row-trasporto">
           <div class="trasp-cell">
             <div class="cell-label">TRASPORTO A CURA</div>
-            <div class="cell-body"><span class="cell-val">Destinatario</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.trasporto_a_cura || 'Destinatario'}</span></div>
           </div>
           <div class="trasp-cell">
             <div class="cell-label">VETTORE</div>
-            <div class="cell-body">&nbsp;</div>
+            <div class="cell-body">{#if doc.vettore}<span class="cell-val">{doc.vettore}</span>{:else}&nbsp;{/if}</div>
           </div>
           <div class="trasp-cell">
             <div class="cell-label">DATA E ORA RITIRO</div>
-            <div class="cell-body"><span class="cell-val">{oraCorrente}</span></div>
+            <div class="cell-body"><span class="cell-val">{formatDataOra(doc.data_ora_ritiro) ?? oraCorrente}</span></div>
           </div>
           <div class="trasp-cell">
             <div class="cell-label">PORTO</div>
-            <div class="cell-body">&nbsp;</div>
+            <div class="cell-body">{#if doc.porto}<span class="cell-val">{doc.porto}</span>{:else}&nbsp;{/if}</div>
           </div>
           <div class="trasp-cell">
             <div class="cell-label">N. COLLI</div>
-            <div class="cell-body"><span class="cell-val">0</span></div>
+            <div class="cell-body"><span class="cell-val">{doc.n_colli ?? 0}</span></div>
           </div>
           <div class="trasp-cell" style="border-right:none">
             <div class="cell-label">ASPETTO ESTERIORE</div>
-            <div class="cell-body">&nbsp;</div>
+            <div class="cell-body">{#if doc.aspetto_esteriore_beni}<span class="cell-val">{doc.aspetto_esteriore_beni}</span>{:else}&nbsp;{/if}</div>
           </div>
         </div>
 

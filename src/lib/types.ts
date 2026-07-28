@@ -126,6 +126,18 @@ export interface Documento {
   is_fattura_differita: number
   fatturato: number
   pdf_allegato: string | null
+  vettore: string | null
+  data_ora_ritiro: string | null
+  n_colli: number | null
+  aspetto_esteriore_beni: string | null
+  porto: string | null
+  causale_trasporto: string | null
+  trasporto_a_cura: string | null
+  banca_appoggio: string | null
+  agente: string | null
+  bolli_art15: string | null
+  spese_varie: number | null
+  spese_incasso: number | null
 }
 
 export interface RigaDocumento {
@@ -162,6 +174,18 @@ export interface NuovoDocumento {
   note?: string | null
   giorni_pagamento?: number | null
   ddt_collegati?: number[] | null
+  vettore?: string | null
+  data_ora_ritiro?: string | null
+  n_colli?: number | null
+  aspetto_esteriore_beni?: string | null
+  porto?: string | null
+  causale_trasporto?: string | null
+  trasporto_a_cura?: string | null
+  banca_appoggio?: string | null
+  agente?: string | null
+  bolli_art15?: string | null
+  spese_varie?: number | null
+  spese_incasso?: number | null
   righe: NuovaRigaDocumento[]
 }
 
