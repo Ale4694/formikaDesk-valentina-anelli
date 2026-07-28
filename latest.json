@@ -1,6 +1,6 @@
 {
-  "version": "1.0.61",
-  "notes": "Campi dati trasporto editabili su DDT/Fattura/Buono (vettore, colli, orario ritiro, causale, banca appoggio, ecc.)",
-  "download_url": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/download/v1.0.61-valentina/AutoParts.Gestionale_1.0.61_x64-setup.exe",
+  "version": "1.0.62",
+  "notes": "Checkbox per nascondere l'IBAN in stampa sul singolo documento (DDT, Fattura, Nota credito, Vendita Banco)",
+  "download_url": "https://github.com/Ale4694/formikaDesk-valentina-anelli/releases/download/v1.0.62-valentina/AutoParts.Gestionale_1.0.62_x64-setup.exe",
   "date": "2026-07-28"
 }
