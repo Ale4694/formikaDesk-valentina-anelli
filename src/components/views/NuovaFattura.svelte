@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte'
-  import { clienti, fornitori, ricambi, documenti, formatCurrency, setError, currentView, editDocumentoId } from '../../lib/stores'
+  import { clienti, fornitori, ricambi, documenti, formatCurrency, formatDate, setError, currentView, editDocumentoId } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente } from '../../lib/types'
+  import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente, PrezzoSuggerito } from '../../lib/types'
 
   const dispatch = createEventDispatcher()
 
@@ -137,6 +137,45 @@
     }, 300)
   }
 
+  // Badge prezzo suggerito (Fase 4): solo quando l'articolo viene scelto
+  // dal catalogo normale (selectTa/selectDescTa). Il picker storico (★,
+  // selectTaFromStorico/selectDescTaFromStorico) resta invariato: continua
+  // a compilare il prezzo da solo, comportamento già approvato e in uso.
+  let righeSuggerimento: Record<number, PrezzoSuggerito | null> = {}
+  let taSuggerimentoSeq: Record<number, number> = {}
+
+  async function caricaSuggerimento(riga: RigaUI, ricambioId: number) {
+    const seq = (taSuggerimentoSeq[riga._id] ?? 0) + 1
+    taSuggerimentoSeq = { ...taSuggerimentoSeq, [riga._id]: seq }
+    righeSuggerimento = { ...righeSuggerimento, [riga._id]: null }
+    try {
+      const s = await api.storicoCliente.getPrezzoSuggerito(clienteId, ricambioId)
+      if (taSuggerimentoSeq[riga._id] !== seq) return
+      righeSuggerimento = { ...righeSuggerimento, [riga._id]: s }
+      // dedicato e storico si compilano entrambi in automatico: la label
+      // resta comunque visibile per rendere trasparente da dove viene il
+      // prezzo, cosi' un valore battuto per errore in passato è
+      // riconoscibile invece di propagarsi in silenzio.
+      if (s.livello === 'dedicato' || s.livello === 'storico') {
+        riga.prezzo_unitario = s.prezzo
+        righe = [...righe]
+      }
+    } catch {
+      // non bloccante: l'inserimento riga funziona comunque come oggi
+    }
+  }
+
+  function clearSuggerimento(rigaId: number) {
+    const { [rigaId]: _s, ...restS } = righeSuggerimento
+    righeSuggerimento = restS
+    const { [rigaId]: _q, ...restQ } = taSuggerimentoSeq
+    taSuggerimentoSeq = restQ
+  }
+
+  const tipoLabelBreve: Partial<Record<TipoDocumento, string>> = {
+    fattura: 'Fattura', ddt: 'DDT', vendita_banco: 'Vendita Banco', buono: 'Buono',
+  }
+
   function selectTa(riga: RigaUI, r: Ricambio) {
     riga.ricambio_id = r.id
     riga.descrizione = r.descrizione
@@ -145,6 +184,7 @@
     righe = [...righe]
     setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [], storicoHits: [] })
     setDescTa(riga._id, { query: r.descrizione, open: false, results: [], storicoHits: [] })
+    caricaSuggerimento(riga, r.id)
   }
 
   function selectDescTa(riga: RigaUI, r: Ricambio) {
@@ -155,6 +195,7 @@
     righe = [...righe]
     setDescTa(riga._id, { query: r.descrizione, open: false, results: [], storicoHits: [] })
     setTa(riga._id, { query: `${r.codice_interno} — ${r.descrizione}`, open: false, results: [], storicoHits: [] })
+    caricaSuggerimento(riga, r.id)
   }
 
   function selectTaFromStorico(riga: RigaUI, art: ArticoloStorico) {
@@ -165,6 +206,11 @@
     righe = [...righe]
     setTa(riga._id, { query: `${art.codice_interno} — ${art.descrizione}`, open: false, results: [], storicoHits: [] })
     setDescTa(riga._id, { query: art.descrizione, open: false, results: [], storicoHits: [] })
+    // Il ★ pesca da get_storico_articoli_cliente, che non conosce i prezzi
+    // dedicati. caricaSuggerimento applica la cascata dedicato->storico e,
+    // grazie al contatore di sequenza, sovrascrive in modo sicuro il
+    // prezzo sincrono appena impostato sopra quando arriva la risposta.
+    caricaSuggerimento(riga, art.ricambio_id)
   }
 
   function selectDescTaFromStorico(riga: RigaUI, art: ArticoloStorico) {
@@ -175,6 +221,7 @@
     righe = [...righe]
     setDescTa(riga._id, { query: art.descrizione, open: false, results: [], storicoHits: [] })
     setTa(riga._id, { query: `${art.codice_interno} — ${art.descrizione}`, open: false, results: [], storicoHits: [] })
+    caricaSuggerimento(riga, art.ricambio_id)
   }
 
   function clearTa(riga: RigaUI) {
@@ -185,6 +232,7 @@
     righe = [...righe]
     setTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
     setDescTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
+    clearSuggerimento(riga._id)
   }
 
   function clearDescTa(riga: RigaUI) {
@@ -195,6 +243,7 @@
     righe = [...righe]
     setDescTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
     setTa(riga._id, { query: '', results: [], storicoHits: [], open: false })
+    clearSuggerimento(riga._id)
   }
 
   // Typeahead selezione cliente
@@ -420,6 +469,7 @@
     righeTA = rest
     const { [id]: _d, ...restD } = righeDescTA
     righeDescTA = restD
+    clearSuggerimento(id)
     righe = righe.filter(r => r._id !== id).map((r, i) => ({ ...r, ordine: i }))
   }
 
@@ -748,6 +798,7 @@
       <div class="divide-y divide-gray-800">
         {#each righe as riga (riga._id)}
           {@const re = errRighe[riga._id] ?? {}}
+          {@const sugg = righeSuggerimento[riga._id]}
           <div class="p-4 grid grid-cols-12 gap-2 items-start">
             <!-- Ricambio typeahead -->
             <div class="col-span-3">
@@ -875,6 +926,15 @@
                 readonly={tipoDocumento === 'fattura_differita'}
               />
               {#if re.prezzo}<p class="text-xs text-red-400 mt-0.5">{re.prezzo}</p>{/if}
+              {#if sugg?.livello === 'dedicato'}
+                <p class="text-xs text-brand-400 mt-0.5 truncate" title="Prezzo dedicato per questo cliente">
+                  ★ Prezzo dedicato
+                </p>
+              {:else if sugg?.livello === 'storico'}
+                <p class="text-xs text-brand-400 mt-0.5 truncate" title="Ultimo prezzo praticato a questo cliente">
+                  Ultimo: {tipoLabelBreve[sugg.tipo_documento] ?? sugg.tipo_documento} {sugg.numero_documento} del {formatDate(sugg.data)}
+                </p>
+              {/if}
             </div>
             <!-- Sconto -->
             <div class="col-span-1">

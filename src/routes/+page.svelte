@@ -6,6 +6,7 @@
   import Dashboard from '../components/views/Dashboard.svelte'
   import Magazzino from '../components/views/Magazzino.svelte'
   import Clienti from '../components/views/Clienti.svelte'
+  import SchedaCliente from '../components/views/SchedaCliente.svelte'
   import Fornitori from '../components/views/Fornitori.svelte'
   import Documenti from '../components/views/Documenti.svelte'
   import NuovaFattura from '../components/views/NuovaFattura.svelte'
@@ -159,6 +160,8 @@
         <Magazzino on:refresh={loadAll} />
       {:else if $currentView === 'clienti'}
         <Clienti on:refresh={loadAll} />
+      {:else if $currentView === 'scheda-cliente'}
+        <SchedaCliente />
       {:else if $currentView === 'fornitori'}
         <Fornitori on:refresh={loadAll} />
       {:else if $currentView === 'documenti'}

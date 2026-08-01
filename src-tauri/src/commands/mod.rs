@@ -10,6 +10,7 @@ pub mod fornitori;
 pub mod impostazioni;
 pub mod license;
 pub mod ordini;
+pub mod prezzi_cliente;
 pub mod report;
 pub mod ricambi;
 pub mod ricerca;

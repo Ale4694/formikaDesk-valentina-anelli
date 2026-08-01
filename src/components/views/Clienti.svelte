@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
-  import { clienti, setError, setSuccess } from '../../lib/stores'
+  import { clienti, setError, setSuccess, currentView, schedaClienteId } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type { NuovoCliente } from '../../lib/types'
   import ConfirmModal from '../ConfirmModal.svelte'
@@ -69,6 +69,10 @@
 
   function startEdit(c: (typeof $clienti)[0]) {
     editId = c.id; form = { ...c }; showForm = true
+  }
+  function apriScheda(id: number) {
+    schedaClienteId.set(id)
+    currentView.set('scheda-cliente')
   }
   function cancelForm() { showForm = false; editId = null; form = emptyForm() }
 
@@ -182,7 +186,7 @@
             <td class="px-4 py-3 text-gray-400">{c.citta ?? '—'}{#if c.provincia} ({c.provincia}){/if}</td>
             <td class="px-4 py-3 text-gray-400">{c.telefono ?? '—'}</td>
             <td class="px-4 py-3 text-gray-400">{c.email ?? '—'}</td>
-            <td class="px-4 py-3"><div class="flex gap-1 justify-end"><button class="btn-secondary text-xs px-2 py-1" on:click={() => startEdit(c)}>Modifica</button><button class="btn-danger text-xs px-2 py-1" on:click={() => richiediElimina(c.id, c.ragione_sociale)}>Elimina</button></div></td>
+            <td class="px-4 py-3"><div class="flex gap-1 justify-end"><button class="btn-secondary text-xs px-2 py-1" on:click={() => apriScheda(c.id)}>Scheda</button><button class="btn-secondary text-xs px-2 py-1" on:click={() => startEdit(c)}>Modifica</button><button class="btn-danger text-xs px-2 py-1" on:click={() => richiediElimina(c.id, c.ragione_sociale)}>Elimina</button></div></td>
           </tr>
         {:else}
           <tr>

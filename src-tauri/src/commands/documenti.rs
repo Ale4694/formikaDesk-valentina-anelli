@@ -632,27 +632,34 @@ pub async fn delete_documento(
     Ok(())
 }
 
+// Nota: la fonte dati e' v_storico_vendite (vedi migration
+// 20260801_prezzi_cliente_storico.sql), che filtra per tipo
+// documento e stato. Prima usava righe_documento/documenti senza
+// filtri: poteva suggerire il prezzo di un preventivo mai concluso
+// o di un documento annullato. Firma e forma del risultato restano
+// identiche: questo comando alimenta il picker storico (stella) in
+// NuovaFattura.svelte e quel comportamento UI non cambia.
 #[tauri::command]
 pub async fn get_storico_articoli_cliente(
     cliente_id: i64,
     state: State<'_, AppState>,
 ) -> Result<Vec<ArticoloStorico>, AppError> {
     let rows = sqlx::query_as::<_, ArticoloStorico>(
-        "SELECT r.id as ricambio_id, r.codice_interno, r.descrizione,
+        "SELECT v.articolo_id as ricambio_id,
+                v.codice_articolo as codice_interno,
+                v.descrizione,
                 COALESCE((
-                    SELECT rd2.prezzo_unitario FROM righe_documento rd2
-                    JOIN documenti d2 ON d2.id = rd2.documento_id
-                    WHERE rd2.ricambio_id = r.id AND d2.cliente_id = ?
-                    ORDER BY d2.data DESC, d2.id DESC LIMIT 1
+                    SELECT v2.prezzo_unitario FROM v_storico_vendite v2
+                    WHERE v2.articolo_id = v.articolo_id
+                      AND v2.cliente_id = ?
+                    ORDER BY v2.data DESC, v2.documento_id DESC LIMIT 1
                 ), 0.0) as prezzo_unitario,
-                CAST(SUM(rd.quantita) AS REAL) as quantita_totale,
+                CAST(SUM(v.quantita) AS REAL) as quantita_totale,
                 COUNT(*) as frequenza
-         FROM righe_documento rd
-         JOIN documenti d ON d.id = rd.documento_id
-         JOIN ricambi r ON r.id = rd.ricambio_id
-         WHERE d.cliente_id = ? AND rd.ricambio_id IS NOT NULL
-         GROUP BY r.id, r.codice_interno, r.descrizione
-         ORDER BY frequenza DESC, MAX(d.data) DESC
+         FROM v_storico_vendite v
+         WHERE v.cliente_id = ?
+         GROUP BY v.articolo_id, v.codice_articolo, v.descrizione
+         ORDER BY frequenza DESC, MAX(v.data) DESC
          LIMIT 20",
     )
     .bind(cliente_id)

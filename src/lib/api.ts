@@ -12,6 +12,8 @@ import type {
   Impostazioni, LicenseInfo, AppConfig, ConfigIntestazione,
   PaginatedResult, ArticoloStorico,
   RigaDdtParsed, RigaDdtImport, ParseDdtResult, ImportaDdtResult,
+  PrezzoCliente, NuovoPrezzoCliente, ArticoloVendutoCliente,
+  MovimentoVenditaCliente, PrezzoSuggerito, DocumentoCliente,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -130,6 +132,24 @@ export const api = {
   magazzino: {
     caricoRapido: (codice: string, quantita: number) =>
       call<RicambioResult>('carico_rapido_ricambio', { codice, quantita }),
+  },
+  documentiCliente: {
+    getAll: (clienteId: number) => call<DocumentoCliente[]>('get_documenti_cliente', { clienteId }),
+  },
+  storicoCliente: {
+    getArticoliVenduti: (clienteId: number) =>
+      call<ArticoloVendutoCliente[]>('get_articoli_venduti_cliente', { clienteId }),
+    getMovimenti: (clienteId: number) =>
+      call<MovimentoVenditaCliente[]>('get_movimenti_cliente', { clienteId }),
+    getMovimentiArticolo: (clienteId: number, articoloId: number) =>
+      call<MovimentoVenditaCliente[]>('get_movimenti_articolo_cliente', { clienteId, articoloId }),
+    getPrezzoSuggerito: (clienteId: number | null, ricambioId: number) =>
+      call<PrezzoSuggerito>('get_prezzo_suggerito', { clienteId, ricambioId }),
+  },
+  prezziCliente: {
+    list: (clienteId: number) => call<PrezzoCliente[]>('list_prezzi_cliente', { clienteId }),
+    upsert: (input: NuovoPrezzoCliente) => call<PrezzoCliente>('upsert_prezzo_cliente', { input }),
+    delete: (id: number) => call<void>('delete_prezzo_cliente', { id }),
   },
   ddtFornitore: {
     selezionaPdf: () =>

@@ -227,6 +227,7 @@ export type View =
   | 'dashboard'
   | 'magazzino'
   | 'clienti'
+  | 'scheda-cliente'
   | 'veicoli'
   | 'fornitori'
   | 'ordini-fornitore'
@@ -456,6 +457,69 @@ export interface ArticoloStorico {
   quantita_totale: number
   frequenza: number
 }
+
+// Scheda cliente: prezzi dedicati e storico vendite
+
+export interface PrezzoCliente {
+  id: number
+  cliente_id: number
+  ricambio_id: number
+  codice_interno: string
+  descrizione: string
+  prezzo: number
+  sconto_perc: number | null
+  note: string | null
+  aggiornato_il: string
+}
+
+export interface NuovoPrezzoCliente {
+  cliente_id: number
+  ricambio_id: number
+  prezzo: number
+  sconto_perc: number | null
+  note: string | null
+}
+
+export interface ArticoloVendutoCliente {
+  articolo_id: number
+  codice_articolo: string
+  descrizione: string
+  prezzo_ultimo: number
+  prezzo_min: number
+  prezzo_max: number
+  prezzo_medio: number
+  quantita_totale: number
+  numero_vendite: number
+  ultima_vendita: string
+}
+
+export interface DocumentoCliente {
+  documento_id: number
+  tipo_documento: TipoDocumento
+  numero: string
+  data: string
+  totale: number
+  stato: 'bozza' | 'confermato' | 'pagato' | 'annullato'
+}
+
+export interface MovimentoVenditaCliente {
+  documento_id: number
+  tipo_documento: TipoDocumento
+  numero_documento: string
+  data: string
+  articolo_id: number
+  codice_articolo: string
+  descrizione: string
+  quantita: number
+  prezzo_unitario: number
+  sconto_perc: number
+  totale_riga: number
+}
+
+export type PrezzoSuggerito =
+  | { livello: 'dedicato'; prezzo: number; sconto_perc: number | null; note: string | null }
+  | { livello: 'storico'; prezzo: number; data: string; tipo_documento: TipoDocumento; numero_documento: string }
+  | { livello: 'listino' }
 
 export interface ParseDdtResult {
   righe: RigaDdtParsed[]

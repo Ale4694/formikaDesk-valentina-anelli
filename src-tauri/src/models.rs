@@ -417,3 +417,91 @@ pub struct ArticoloStorico {
     pub quantita_totale: f64,
     pub frequenza: i64,
 }
+
+// Scheda cliente: prezzi dedicati e storico vendite
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]
+pub struct PrezzoCliente {
+    pub id: i64,
+    pub cliente_id: i64,
+    pub ricambio_id: i64,
+    pub codice_interno: String,
+    pub descrizione: String,
+    pub prezzo: f64,
+    pub sconto_perc: Option<f64>,
+    pub note: Option<String>,
+    pub aggiornato_il: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NuovoPrezzoCliente {
+    pub cliente_id: i64,
+    pub ricambio_id: i64,
+    pub prezzo: f64,
+    pub sconto_perc: Option<f64>,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ArticoloVendutoCliente {
+    pub articolo_id: i64,
+    pub codice_articolo: String,
+    pub descrizione: String,
+    pub prezzo_ultimo: f64,
+    pub prezzo_min: f64,
+    pub prezzo_max: f64,
+    pub prezzo_medio: f64,
+    pub quantita_totale: f64,
+    pub numero_vendite: i64,
+    pub ultima_vendita: String,
+}
+
+/// Tab "Documenti" della scheda cliente: elenco completo, non filtrato,
+/// di tutti i documenti intestati al cliente. Legge direttamente da
+/// `documenti` (non da v_storico_vendite): qui servono anche preventivi,
+/// note di credito, fatture differite, bozze e annullati.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct DocumentoCliente {
+    pub documento_id: i64,
+    pub tipo_documento: String,
+    pub numero: String,
+    pub data: String,
+    pub totale: f64,
+    pub stato: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct MovimentoVenditaCliente {
+    pub documento_id: i64,
+    pub tipo_documento: String,
+    pub numero_documento: String,
+    pub data: String,
+    pub articolo_id: i64,
+    pub codice_articolo: String,
+    pub descrizione: String,
+    pub quantita: f64,
+    pub prezzo_unitario: f64,
+    pub sconto_perc: f64,
+    pub totale_riga: f64,
+}
+
+/// Cascata di risoluzione prezzo per un cliente+articolo.
+/// - Dedicato: riga in prezzi_cliente, va applicata in automatico.
+/// - Storico: ultimo prezzo praticato, solo suggerimento (badge cliccabile).
+/// - Listino: nessun dato, il chiamante usa il prezzo di listino attuale.
+#[derive(Debug, Serialize)]
+#[serde(tag = "livello", rename_all = "snake_case")]
+pub enum PrezzoSuggerito {
+    Dedicato {
+        prezzo: f64,
+        sconto_perc: Option<f64>,
+        note: Option<String>,
+    },
+    Storico {
+        prezzo: f64,
+        data: String,
+        tipo_documento: String,
+        numero_documento: String,
+    },
+    Listino,
+}
