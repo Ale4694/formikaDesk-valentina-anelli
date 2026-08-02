@@ -227,6 +227,20 @@ pub struct DashboardStats {
     pub incasso_oggi: f64,
 }
 
+/// Riga della card "Clienti più attivi" in dashboard. Fatturato e
+/// numero_documenti condividono lo stesso filtro WHERE della query in
+/// get_riepilogo_cliente (tipo_documento='fattura', anno corrente,
+/// stato diverso da annullato/bozza): il totale mostrato qui deve
+/// coincidere con quello che l'utente legge aprendo la scheda del
+/// cliente, altrimenti perde fiducia in entrambi i numeri.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ClienteAttivo {
+    pub cliente_id: i64,
+    pub ragione_sociale: String,
+    pub numero_documenti: i64,
+    pub fatturato: f64,
+}
+
 // Carico rapido barcode
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -468,6 +482,17 @@ pub struct DocumentoCliente {
     pub data: String,
     pub totale: f64,
     pub stato: String,
+}
+
+/// Riepilogo sintetico in cima alla scheda cliente, sempre visibile
+/// sopra i tab. Fatturato calcolato solo su tipo_documento='fattura'
+/// (mai sulla view storico): deve restare un numero verificabile
+/// dall'utente confrontandolo col resoconto esistente.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct RiepilogoCliente {
+    pub ultima_vendita: Option<String>,
+    pub numero_documenti: i64,
+    pub fatturato_anno_corrente: f64,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

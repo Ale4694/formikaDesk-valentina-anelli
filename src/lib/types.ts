@@ -210,6 +210,13 @@ export interface DashboardStats {
   incasso_oggi: number
 }
 
+export interface ClienteAttivo {
+  cliente_id: number
+  ragione_sociale: string
+  numero_documenti: number
+  fatturato: number
+}
+
 export interface AppError {
   type: 'Database' | 'NotFound' | 'Validation' | 'Internal'
   message: string
@@ -478,6 +485,12 @@ export interface NuovoPrezzoCliente {
   prezzo: number
   sconto_perc: number | null
   note: string | null
+}
+
+export interface RiepilogoCliente {
+  ultima_vendita: string | null
+  numero_documenti: number
+  fatturato_anno_corrente: number
 }
 
 export interface ArticoloVendutoCliente {

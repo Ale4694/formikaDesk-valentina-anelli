@@ -1,13 +1,14 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
-  import { dashboardStats, formatCurrency, currentView } from '../../lib/stores'
+  import { createEventDispatcher, onMount } from 'svelte'
+  import { dashboardStats, formatCurrency, currentView, schedaClienteId } from '../../lib/stores'
   import { api } from '../../lib/api'
   import ReportModal from '../ReportModal.svelte'
-  import type { ReportMensile } from '../../lib/types'
+  import type { ReportMensile, ClienteAttivo } from '../../lib/types'
 
   const dispatch = createEventDispatcher()
 
   const now = new Date()
+  const annoCorrente = now.getFullYear()
   let reportAnno = now.getFullYear()
   let reportMese = now.getMonth() + 1
   let reportData: ReportMensile | null = null
@@ -33,6 +34,27 @@
 
   const mesi = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
                  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+
+  let clientiAttivi: ClienteAttivo[] = []
+  let clientiAttiviLoading = true
+
+  async function caricaClientiAttivi() {
+    clientiAttiviLoading = true
+    try {
+      clientiAttivi = await api.dashboard.getClientiPiuAttivi()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      clientiAttiviLoading = false
+    }
+  }
+
+  function apriSchedaCliente(clienteId: number) {
+    schedaClienteId.set(clienteId)
+    currentView.set('scheda-cliente')
+  }
+
+  onMount(caricaClientiAttivi)
 
   interface StatCard { label: string; value: string; color: string; alert?: boolean }
 
@@ -77,7 +99,7 @@
 <div class="p-6 space-y-6">
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-semibold text-white">Dashboard</h1>
-    <button class="btn-secondary text-xs" on:click={() => dispatch('refresh')}>
+    <button class="btn-secondary text-xs" on:click={() => { dispatch('refresh'); caricaClientiAttivi() }}>
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -121,6 +143,35 @@
         </div>
       </div>
     {/if}
+
+    <!-- Clienti più attivi -->
+    <div class="card p-4">
+      <p class="text-sm font-medium text-gray-300 mb-3">Clienti più attivi {annoCorrente}</p>
+      {#if clientiAttiviLoading}
+        <div class="flex justify-center py-6">
+          <div class="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      {:else if clientiAttivi.length === 0}
+        <p class="text-sm text-gray-500 text-center py-6">Nessuna fattura emessa nel {annoCorrente}.</p>
+      {:else}
+        <div class="divide-y divide-gray-800">
+          {#each clientiAttivi as c (c.cliente_id)}
+            <button
+              class="w-full flex items-center justify-between gap-4 py-2.5 px-2 -mx-2 rounded text-left hover:bg-gray-800/40 transition-colors"
+              on:click={() => apriSchedaCliente(c.cliente_id)}
+            >
+              <span class="text-sm text-gray-200 truncate">{c.ragione_sociale}</span>
+              <span class="flex items-center gap-4 shrink-0">
+                <span class="text-xs text-gray-500 whitespace-nowrap">{c.numero_documenti} doc.</span>
+                <span class="text-sm font-mono font-medium text-green-400 text-right w-24">
+                  {formatCurrency(c.fatturato)}
+                </span>
+              </span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
 
      <!-- Report -->
      <div class="card p-4">

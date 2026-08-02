@@ -13,7 +13,8 @@ import type {
   PaginatedResult, ArticoloStorico,
   RigaDdtParsed, RigaDdtImport, ParseDdtResult, ImportaDdtResult,
   PrezzoCliente, NuovoPrezzoCliente, ArticoloVendutoCliente,
-  MovimentoVenditaCliente, PrezzoSuggerito, DocumentoCliente,
+  MovimentoVenditaCliente, PrezzoSuggerito, DocumentoCliente, RiepilogoCliente,
+  ClienteAttivo,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -28,6 +29,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 export const api = {
   dashboard: {
     getStats: () => call<DashboardStats>('get_dashboard_stats'),
+    getClientiPiuAttivi: () => call<ClienteAttivo[]>('get_clienti_piu_attivi'),
   },
   clienti: {
     getAll: () => call<Cliente[]>('get_all_clienti'),
@@ -137,6 +139,8 @@ export const api = {
     getAll: (clienteId: number) => call<DocumentoCliente[]>('get_documenti_cliente', { clienteId }),
   },
   storicoCliente: {
+    getRiepilogo: (clienteId: number) =>
+      call<RiepilogoCliente>('get_riepilogo_cliente', { clienteId }),
     getArticoliVenduti: (clienteId: number) =>
       call<ArticoloVendutoCliente[]>('get_articoli_venduti_cliente', { clienteId }),
     getMovimenti: (clienteId: number) =>

@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::DashboardStats;
+use crate::models::{ClienteAttivo, DashboardStats};
 use tauri::State;
 
 #[tauri::command]
@@ -72,4 +72,31 @@ pub async fn get_dashboard_stats(state: State<'_, AppState>) -> Result<Dashboard
         scontrini_oggi,
         incasso_oggi,
     })
+}
+
+/// Top 5 clienti per fatturato dell'anno solare corrente.
+/// Filtro IDENTICO a quello di get_riepilogo_cliente (vedi
+/// commands/prezzi_cliente.rs): stesso tipo_documento, stesso stato,
+/// stesso anno. Il numero deve poter essere verificato dall'utente
+/// aprendo la scheda del singolo cliente.
+#[tauri::command]
+pub async fn get_clienti_piu_attivi(state: State<'_, AppState>) -> Result<Vec<ClienteAttivo>, AppError> {
+    let rows = sqlx::query_as::<_, ClienteAttivo>(
+        "SELECT
+            c.id AS cliente_id,
+            c.ragione_sociale AS ragione_sociale,
+            COUNT(*) AS numero_documenti,
+            SUM(d.totale_documento) AS fatturato
+         FROM documenti d
+         JOIN clienti c ON c.id = d.cliente_id
+         WHERE d.tipo_documento = 'fattura'
+           AND d.stato NOT IN ('annullato', 'bozza')
+           AND strftime('%Y', d.data) = strftime('%Y', 'now')
+         GROUP BY c.id, c.ragione_sociale
+         ORDER BY fatturato DESC
+         LIMIT 5",
+    )
+    .fetch_all(&state.db)
+    .await?;
+    Ok(rows)
 }

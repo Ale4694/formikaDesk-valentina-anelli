@@ -1,9 +1,37 @@
 use crate::models::{
     ArticoloVendutoCliente, DocumentoCliente, MovimentoVenditaCliente,
-    NuovoPrezzoCliente, PrezzoCliente, PrezzoSuggerito,
+    NuovoPrezzoCliente, PrezzoCliente, PrezzoSuggerito, RiepilogoCliente,
 };
 use crate::{AppError, AppState};
 use tauri::State;
+
+/// Riepilogo sempre visibile in cima alla scheda cliente: data ultima
+/// vendita (da v_storico_vendite), conteggio totale documenti (da
+/// `documenti`, stesso criterio non filtrato del tab "Documenti") e
+/// fatturato dell'anno solare in corso calcolato solo sulle fatture
+/// (tipo_documento='fattura', stato diverso da annullato/bozza).
+/// Una sola query per i tre valori insieme.
+#[tauri::command]
+pub async fn get_riepilogo_cliente(
+    cliente_id: i64,
+    state: State<'_, AppState>,
+) -> Result<RiepilogoCliente, AppError> {
+    let row = sqlx::query_as::<_, RiepilogoCliente>(
+        "SELECT
+            (SELECT MAX(data) FROM v_storico_vendite WHERE cliente_id = ?1) AS ultima_vendita,
+            (SELECT COUNT(*) FROM documenti WHERE cliente_id = ?1) AS numero_documenti,
+            (SELECT COALESCE(SUM(totale_documento), 0.0) FROM documenti
+             WHERE cliente_id = ?1
+               AND tipo_documento = 'fattura'
+               AND stato NOT IN ('annullato', 'bozza')
+               AND strftime('%Y', data) = strftime('%Y', 'now')
+            ) AS fatturato_anno_corrente",
+    )
+    .bind(cliente_id)
+    .fetch_one(&state.db)
+    .await?;
+    Ok(row)
+}
 
 /// Elenco completo di tutti i documenti intestati al cliente (tab
 /// "Documenti"). Legge direttamente da `documenti`, filtro solo su

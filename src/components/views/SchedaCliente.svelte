@@ -1,12 +1,12 @@
 <script lang="ts">
   import {
     clienti, schedaClienteId, currentView, editDocumentoId,
-    formatCurrency, setError, setSuccess,
+    formatCurrency, formatDate, setError, setSuccess,
   } from '../../lib/stores'
   import { api } from '../../lib/api'
   import type {
     ArticoloVendutoCliente, MovimentoVenditaCliente, PrezzoCliente,
-    Ricambio, TipoDocumento, DocumentoCliente,
+    Ricambio, TipoDocumento, DocumentoCliente, RiepilogoCliente,
   } from '../../lib/types'
   import ConfirmModal from '../ConfirmModal.svelte'
 
@@ -51,6 +51,22 @@
     currentView.set('nuova-fattura')
   }
 
+  // ---------------------------------------------------------------
+  // Riepilogo in cima, sempre visibile
+  // ---------------------------------------------------------------
+  let riepilogo: RiepilogoCliente | null = null
+
+  async function caricaRiepilogo(id: number) {
+    riepilogo = null
+    try {
+      riepilogo = await api.storicoCliente.getRiepilogo(id)
+    } catch (e: any) {
+      setError(e?.message ?? 'Errore caricamento riepilogo cliente')
+    }
+  }
+
+  const annoCorrente = new Date().getFullYear()
+
   type Tab = 'articoli' | 'movimenti' | 'prezzi' | 'documenti'
   let tab: Tab = 'articoli'
   const tabs: { id: Tab; label: string }[] = [
@@ -66,7 +82,10 @@
   let articoli: ArticoloVendutoCliente[] = []
   let loadingArticoli = false
   let searchArticoli = ''
-  let sortColArt: keyof ArticoloVendutoCliente = 'ultima_vendita'
+  // Frequenza di vendita DESC di default: chi apre la scheda spesso
+  // non conosce il codice articolo, sa solo il cliente, e vuole
+  // subito "cosa gli vendo di solito" senza dover cercare o riordinare.
+  let sortColArt: keyof ArticoloVendutoCliente = 'numero_vendite'
   let sortDirArt: 'asc' | 'desc' = 'desc'
   let expandedArticoloId: number | null = null
   let movimentiArticoloMap: Record<number, MovimentoVenditaCliente[]> = {}
@@ -306,6 +325,7 @@
     movimentiArticoloMap = {}
     mostraTuttiDocumenti = false
     resetForm()
+    caricaRiepilogo(clienteId)
     caricaArticoli(clienteId)
     caricaMovimenti(clienteId)
     caricaPrezzi(clienteId)
@@ -344,6 +364,26 @@
       </div>
     </div>
 
+    <!-- Riepilogo discreto: sempre visibile, sopra i tab -->
+    <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500 -mt-2">
+      <span>
+        Ultima vendita
+        <span class="text-gray-300">
+          {riepilogo?.ultima_vendita ? formatDate(riepilogo.ultima_vendita) : '—'}
+        </span>
+      </span>
+      <span>
+        Documenti
+        <span class="text-gray-300">{riepilogo ? riepilogo.numero_documenti : '—'}</span>
+      </span>
+      <span>
+        Fatturato {annoCorrente}
+        <span class="text-gray-300">
+          {riepilogo ? formatCurrency(riepilogo.fatturato_anno_corrente) : '—'}
+        </span>
+      </span>
+    </div>
+
     <!-- Tab bar -->
     <div class="flex gap-2 border-b border-gray-800 pb-0">
       {#each tabs as t}
@@ -379,16 +419,16 @@
                 {#each [
                   { col: 'codice_articolo', label: 'Codice' },
                   { col: 'descrizione',     label: 'Descrizione' },
-                  { col: 'prezzo_ultimo',   label: 'Ultimo' },
-                  { col: 'prezzo_min',      label: 'Min' },
-                  { col: 'prezzo_max',      label: 'Max' },
-                  { col: 'prezzo_medio',    label: 'Medio' },
-                  { col: 'quantita_totale', label: 'Q.tà tot.' },
-                  { col: 'numero_vendite',  label: 'Vendite' },
+                  { col: 'prezzo_ultimo',   label: 'Ultimo',    align: 'right' },
+                  { col: 'prezzo_min',      label: 'Min',       align: 'right' },
+                  { col: 'prezzo_max',      label: 'Max',       align: 'right' },
+                  { col: 'prezzo_medio',    label: 'Medio',     align: 'right' },
+                  { col: 'quantita_totale', label: 'Q.tà tot.', align: 'right' },
+                  { col: 'numero_vendite',  label: 'Vendite',   align: 'right' },
                   { col: 'ultima_vendita',  label: 'Ultima vendita' },
                 ] as h}
                   <th
-                    class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-gray-200 whitespace-nowrap"
+                    class="px-3 py-3 {h.align === 'right' ? 'text-right' : 'text-left'} cursor-pointer select-none hover:text-gray-200 whitespace-nowrap"
                     on:click={() => toggleSortArt(h.col as keyof ArticoloVendutoCliente)}
                   >
                     {h.label}
@@ -407,15 +447,15 @@
                   class="table-row-hover cursor-pointer"
                   on:click={() => toggleArticolo(a.articolo_id)}
                 >
-                  <td class="px-3 py-2.5 font-mono text-brand-400 text-xs">{a.codice_articolo}</td>
-                  <td class="px-3 py-2.5 text-gray-200">{a.descrizione}</td>
-                  <td class="px-3 py-2.5 text-green-400 font-medium">{formatCurrency(a.prezzo_ultimo)}</td>
-                  <td class="px-3 py-2.5 text-gray-400">{formatCurrency(a.prezzo_min)}</td>
-                  <td class="px-3 py-2.5 text-gray-400">{formatCurrency(a.prezzo_max)}</td>
-                  <td class="px-3 py-2.5 text-gray-400">{formatCurrency(a.prezzo_medio)}</td>
-                  <td class="px-3 py-2.5 text-gray-400">{a.quantita_totale}</td>
-                  <td class="px-3 py-2.5 text-gray-400">{a.numero_vendite}</td>
-                  <td class="px-3 py-2.5 text-gray-400">{a.ultima_vendita}</td>
+                  <td class="px-3 py-3 font-mono text-brand-400 text-xs">{a.codice_articolo}</td>
+                  <td class="px-3 py-3 text-gray-200">{a.descrizione}</td>
+                  <td class="px-3 py-3 text-right font-mono text-green-400 font-medium">{formatCurrency(a.prezzo_ultimo)}</td>
+                  <td class="px-3 py-3 text-right font-mono text-gray-400">{formatCurrency(a.prezzo_min)}</td>
+                  <td class="px-3 py-3 text-right font-mono text-gray-400">{formatCurrency(a.prezzo_max)}</td>
+                  <td class="px-3 py-3 text-right font-mono text-gray-400">{formatCurrency(a.prezzo_medio)}</td>
+                  <td class="px-3 py-3 text-right text-gray-400">{a.quantita_totale}</td>
+                  <td class="px-3 py-3 text-right text-gray-400">{a.numero_vendite}</td>
+                  <td class="px-3 py-3 text-gray-400">{formatDate(a.ultima_vendita)}</td>
                 </tr>
                 {#if expandedArticoloId === a.articolo_id}
                   <tr>
@@ -432,19 +472,19 @@
                           <table class="w-full text-xs">
                             <thead>
                               <tr class="text-gray-500">
-                                <th class="text-left pb-1.5 font-medium">Data</th>
-                                <th class="text-left pb-1.5 font-medium">Documento</th>
-                                <th class="text-left pb-1.5 font-medium">Qtà</th>
-                                <th class="text-left pb-1.5 font-medium">Prezzo</th>
-                                <th class="text-left pb-1.5 font-medium">Sc. %</th>
-                                <th class="text-left pb-1.5 font-medium">Totale</th>
+                                <th class="text-left pb-2 font-medium">Data</th>
+                                <th class="text-left pb-2 font-medium">Documento</th>
+                                <th class="text-right pb-2 font-medium">Qtà</th>
+                                <th class="text-right pb-2 font-medium">Prezzo</th>
+                                <th class="text-right pb-2 font-medium">Sc. %</th>
+                                <th class="text-right pb-2 font-medium">Totale</th>
                               </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-800/50">
                               {#each mv as m}
                                 <tr>
-                                  <td class="py-1.5 pr-3 text-gray-400">{m.data}</td>
-                                  <td class="py-1.5 pr-3">
+                                  <td class="py-2 pr-3 text-gray-400">{formatDate(m.data)}</td>
+                                  <td class="py-2 pr-3">
                                     <button
                                       class="{tipoBadge[m.tipo_documento] ?? 'badge-gray'} text-xs"
                                       on:click|stopPropagation={() => apriDocumento(m.documento_id)}
@@ -452,10 +492,10 @@
                                       {tipoLabel[m.tipo_documento] ?? m.tipo_documento} {m.numero_documento}
                                     </button>
                                   </td>
-                                  <td class="py-1.5 pr-3 text-gray-300">{m.quantita}</td>
-                                  <td class="py-1.5 pr-3 text-gray-300">{formatCurrency(m.prezzo_unitario)}</td>
-                                  <td class="py-1.5 pr-3 text-gray-400">{m.sconto_perc}%</td>
-                                  <td class="py-1.5 pr-3 text-green-400">{formatCurrency(m.totale_riga)}</td>
+                                  <td class="py-2 pr-3 text-right text-gray-300">{m.quantita}</td>
+                                  <td class="py-2 pr-3 text-right font-mono text-gray-300">{formatCurrency(m.prezzo_unitario)}</td>
+                                  <td class="py-2 pr-3 text-right text-gray-400">{m.sconto_perc}%</td>
+                                  <td class="py-2 pr-3 text-right font-mono text-green-400">{formatCurrency(m.totale_riga)}</td>
                                 </tr>
                               {/each}
                             </tbody>
@@ -486,15 +526,15 @@
                 <th class="px-4 py-3 text-left">Documento</th>
                 <th class="px-4 py-3 text-left">Articolo</th>
                 <th class="px-4 py-3 text-left">Qtà</th>
-                <th class="px-4 py-3 text-left">Prezzo</th>
+                <th class="px-4 py-3 text-right">Prezzo</th>
                 <th class="px-4 py-3 text-left">Sc. %</th>
-                <th class="px-4 py-3 text-left">Totale</th>
+                <th class="px-4 py-3 text-right">Totale</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-800">
               {#each movimenti as m}
                 <tr class="table-row-hover">
-                  <td class="px-4 py-3 text-gray-400">{m.data}</td>
+                  <td class="px-4 py-3 text-gray-400">{formatDate(m.data)}</td>
                   <td class="px-4 py-3">
                     <button
                       class="{tipoBadge[m.tipo_documento] ?? 'badge-gray'} text-xs"
@@ -508,9 +548,9 @@
                     <span class="text-gray-400 text-xs"> — {m.descrizione}</span>
                   </td>
                   <td class="px-4 py-3 text-gray-300">{m.quantita}</td>
-                  <td class="px-4 py-3 text-gray-300">{formatCurrency(m.prezzo_unitario)}</td>
+                  <td class="px-4 py-3 text-right font-mono text-gray-300">{formatCurrency(m.prezzo_unitario)}</td>
                   <td class="px-4 py-3 text-gray-400">{m.sconto_perc}%</td>
-                  <td class="px-4 py-3 text-green-400 font-medium">{formatCurrency(m.totale_riga)}</td>
+                  <td class="px-4 py-3 text-right font-mono text-green-400 font-medium">{formatCurrency(m.totale_riga)}</td>
                 </tr>
               {/each}
             </tbody>
@@ -543,14 +583,14 @@
                     class="table-row-hover cursor-pointer"
                     on:click={() => apriDocumento(d.documento_id)}
                   >
-                    <td class="px-4 py-3 text-gray-400">{d.data}</td>
+                    <td class="px-4 py-3 text-gray-400">{formatDate(d.data)}</td>
                     <td class="px-4 py-3">
                       <span class="{tipoBadge[d.tipo_documento] ?? 'badge-gray'} text-xs">
                         {tipoLabel[d.tipo_documento] ?? d.tipo_documento}
                       </span>
                     </td>
                     <td class="px-4 py-3 font-mono text-brand-400">{d.numero}</td>
-                    <td class="px-4 py-3 text-right font-medium text-green-400">{formatCurrency(d.totale)}</td>
+                    <td class="px-4 py-3 text-right font-mono font-medium text-green-400">{formatCurrency(d.totale)}</td>
                     <td class="px-4 py-3">
                       <span class={statoBadge[d.stato] ?? 'badge-gray'}>{d.stato}</span>
                     </td>
@@ -652,7 +692,7 @@
                   <tr class="table-row-hover">
                     <td class="px-4 py-3 font-mono text-brand-400 text-xs">{p.codice_interno}</td>
                     <td class="px-4 py-3 text-gray-200">{p.descrizione}</td>
-                    <td class="px-4 py-3 text-green-400 font-medium">{formatCurrency(p.prezzo)}</td>
+                    <td class="px-4 py-3 font-mono text-green-400 font-medium">{formatCurrency(p.prezzo)}</td>
                     <td class="px-4 py-3 text-gray-400">{p.sconto_perc != null ? `${p.sconto_perc}%` : '—'}</td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{p.note ?? '—'}</td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{p.aggiornato_il}</td>
