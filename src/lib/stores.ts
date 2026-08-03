@@ -45,3 +45,21 @@ export function formatCurrency(n: number): string {
 export function formatDate(s: string): string {
   return new Date(s).toLocaleDateString('it-IT')
 }
+
+// "Quanto tempo fa" arrotondato, in italiano. Un prezzo di due anni fa
+// e uno di due mesi fa hanno peso diverso: qui evitiamo che l'utente
+// debba farsi il calcolo a mente ogni volta che guarda una data.
+export function formatRelativeTime(s: string): string {
+  const diffMs = Date.now() - new Date(s).getTime()
+  const diffDays = Math.floor(diffMs / 86_400_000)
+
+  if (diffDays <= 0) return 'oggi'
+  if (diffDays === 1) return 'ieri'
+  if (diffDays < 30) return `${diffDays} giorni fa`
+
+  const diffMonths = Math.round(diffDays / 30.44)
+  if (diffMonths < 12) return `${diffMonths} mes${diffMonths === 1 ? 'e' : 'i'} fa`
+
+  const diffYears = Math.round(diffDays / 365.25)
+  return `${diffYears} ann${diffYears === 1 ? 'o' : 'i'} fa`
+}

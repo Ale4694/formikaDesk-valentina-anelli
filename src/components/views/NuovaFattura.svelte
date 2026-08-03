@@ -2,7 +2,9 @@
   import { onMount, createEventDispatcher } from 'svelte'
   import { clienti, fornitori, ricambi, documenti, formatCurrency, formatDate, setError, currentView, editDocumentoId } from '../../lib/stores'
   import { api } from '../../lib/api'
-  import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente, PrezzoSuggerito } from '../../lib/types'
+  import type { NuovaRigaDocumento, TipoDocumento, Ricambio, ArticoloStorico, Cliente, PrezzoSuggerito, RigaDocumento } from '../../lib/types'
+  import StoricoPrezziClienteModal from '../StoricoPrezziClienteModal.svelte'
+  import ClientiFrequentiModal from '../ClientiFrequentiModal.svelte'
 
   const dispatch = createEventDispatcher()
 
@@ -172,6 +174,88 @@
     taSuggerimentoSeq = restQ
   }
 
+  // Pannello storico prezzi cliente (F2): stesso gesto del vecchio
+  // gestionale, ma con più informazioni. Si apre da ricambio/descrizione/
+  // prezzo, mai da fattura_differita (righe non modificabili).
+  let f2Open = false
+  let f2RigaId: number | null = null
+  let f2ClienteId: number | null = null
+  let f2TriggerEl: HTMLElement | null = null
+
+  $: f2ClienteNome = f2ClienteId != null ? ($clienti.find(c => c.id === f2ClienteId)?.ragione_sociale ?? '') : ''
+  $: f2DocumentoVuoto = righe.every(r => r.ricambio_id == null)
+  $: f2Riga = f2RigaId != null ? righe.find(r => r._id === f2RigaId) ?? null : null
+  $: f2ArticoloCorrente = (() => {
+    if (!f2Riga || f2Riga.ricambio_id == null) return null
+    const rc = $ricambi.find(r => r.id === f2Riga!.ricambio_id)
+    return { ricambioId: f2Riga.ricambio_id, codiceInterno: rc?.codice_interno ?? '', descrizione: f2Riga.descrizione }
+  })()
+
+  function apriF2(riga: RigaUI, el: HTMLElement) {
+    if (tipoDocumento === 'fattura_differita') return
+    if (!clienteId) { setError('Seleziona prima un cliente'); return }
+    setTa(riga._id, { open: false })
+    setDescTa(riga._id, { open: false })
+    f2RigaId = riga._id
+    f2ClienteId = clienteId
+    f2TriggerEl = el
+    f2Open = true
+  }
+
+  function chiudiF2() {
+    f2Open = false
+    f2RigaId = null
+    f2ClienteId = null
+    const el = f2TriggerEl
+    f2TriggerEl = null
+    el?.focus()
+  }
+
+  function onF2Select(e: CustomEvent<{ ricambioId: number; codiceArticolo: string; descrizione: string; prezzoUnitario: number; scontoPercentuale: number | null }>) {
+    const riga = righe.find(r => r._id === f2RigaId)
+    if (!riga) { chiudiF2(); return }
+    const { ricambioId, codiceArticolo, descrizione, prezzoUnitario, scontoPercentuale } = e.detail
+    riga.ricambio_id = ricambioId
+    riga.descrizione = descrizione
+    riga.prezzo_unitario = prezzoUnitario
+    riga.iva_percentuale = senzaIva ? 0 : 22
+    if (scontoPercentuale != null) riga.sconto_percentuale = scontoPercentuale
+    righe = [...righe]
+    setTa(riga._id, { query: `${codiceArticolo} — ${descrizione}`, open: false, results: [], storicoHits: [] })
+    setDescTa(riga._id, { query: descrizione, open: false, results: [], storicoHits: [] })
+    clearSuggerimento(riga._id)
+    chiudiF2()
+  }
+
+  function onF2Ricarica(e: CustomEvent<{ righe: RigaDocumento[] }>) {
+    const nuoveRighe: RigaUI[] = []
+    let nuoveTA: Record<number, TAState> = {}
+    let nuoveDescTA: Record<number, TAState> = {}
+    for (const r of e.detail.righe) {
+      const _id = nextId++
+      const rcMatch = r.ricambio_id != null ? $ricambi.find(rc => rc.id === r.ricambio_id) : null
+      const taQuery = rcMatch ? `${rcMatch.codice_interno} — ${rcMatch.descrizione}` : r.descrizione
+      nuoveTA[_id] = { query: taQuery, results: [], storicoHits: [], open: false }
+      nuoveDescTA[_id] = { query: r.descrizione, results: [], storicoHits: [], open: false }
+      nuoveRighe.push({
+        _id,
+        ricambio_id: r.ricambio_id,
+        descrizione: r.descrizione,
+        quantita: r.quantita,
+        prezzo_unitario: r.prezzo_unitario,
+        sconto_percentuale: r.sconto_percentuale,
+        iva_percentuale: r.iva_percentuale,
+        ordine: r.ordine,
+      })
+    }
+    righe = nuoveRighe
+    righeTA = nuoveTA
+    righeDescTA = nuoveDescTA
+    righeSuggerimento = {}
+    taSuggerimentoSeq = {}
+    chiudiF2()
+  }
+
   const tipoLabelBreve: Partial<Record<TipoDocumento, string>> = {
     fattura: 'Fattura', ddt: 'DDT', vendita_banco: 'Vendita Banco', buono: 'Buono',
   }
@@ -272,6 +356,26 @@
   function clearCliente() {
     clienteId = null
     clienteTA = { query: '', results: [], open: false }
+  }
+
+  // Pannello F2 sul campo cliente: scorciatoia sugli 8 clienti più attivi
+  // dell'anno, non un sostituto della ricerca. Non ruba mai il focus dal
+  // campo (nessun focus() qui dentro): il typeahead sotto resta vivo e
+  // digitare continua a funzionare come se il pannello non ci fosse.
+  let clienteF2Open = false
+
+  function apriClienteF2() {
+    clienteF2Open = true
+  }
+
+  function chiudiClienteF2() {
+    clienteF2Open = false
+  }
+
+  function onClienteF2Select(e: CustomEvent<{ clienteId: number; ragioneSociale: string }>) {
+    clienteId = e.detail.clienteId
+    clienteTA = { query: e.detail.ragioneSociale, results: [], open: false }
+    chiudiClienteF2()
   }
 
   // Storico acquisti cliente (alimenta i dropdown di ricambio/descrizione)
@@ -607,7 +711,10 @@
               placeholder="Cerca cliente per nome, P.IVA..."
               value={clienteTA.query}
               on:input={e => onClienteInput((e.target as HTMLInputElement).value)}
-              on:keydown={e => { if (e.key === 'Escape') clienteTA = { ...clienteTA, open: false } }}
+              on:keydown={e => {
+                if (e.key === 'Escape') clienteTA = { ...clienteTA, open: false }
+                else if (e.key === 'F2') { e.preventDefault(); apriClienteF2() }
+              }}
               on:blur={() => setTimeout(() => clienteTA = { ...clienteTA, open: false }, 150)}
             />
             {#if clienteTA.query}
@@ -810,7 +917,10 @@
                     placeholder="Cerca codice o descrizione..."
                     value={getTa(riga._id).query}
                     on:input={e => onTaInput(riga, (e.target as HTMLInputElement).value)}
-                    on:keydown={e => { if (e.key === 'Escape') setTa(riga._id, { open: false }) }}
+                    on:keydown={e => {
+                      if (e.key === 'Escape') setTa(riga._id, { open: false })
+                      else if (e.key === 'F2') { e.preventDefault(); apriF2(riga, e.currentTarget as HTMLElement) }
+                    }}
                     on:blur={() => setTimeout(() => setTa(riga._id, { open: false }), 150)}
                   />
                   {#if getTa(riga._id).query}
@@ -862,7 +972,10 @@
                     placeholder="Cerca descrizione..."
                     value={getDescTa(riga._id).query}
                     on:input={e => onDescTaInput(riga, (e.target as HTMLInputElement).value)}
-                    on:keydown={e => { if (e.key === 'Escape') setDescTa(riga._id, { open: false }) }}
+                    on:keydown={e => {
+                      if (e.key === 'Escape') setDescTa(riga._id, { open: false })
+                      else if (e.key === 'F2') { e.preventDefault(); apriF2(riga, e.currentTarget as HTMLElement) }
+                    }}
                     on:blur={() => setTimeout(() => setDescTa(riga._id, { open: false }), 150)}
                   />
                   {#if getDescTa(riga._id).query}
@@ -924,6 +1037,7 @@
                 type="number" min="0" step="0.01"
                 bind:value={riga.prezzo_unitario}
                 readonly={tipoDocumento === 'fattura_differita'}
+                on:keydown={e => { if (e.key === 'F2') { e.preventDefault(); apriF2(riga, e.currentTarget as HTMLElement) } }}
               />
               {#if re.prezzo}<p class="text-xs text-red-400 mt-0.5">{re.prezzo}</p>{/if}
               {#if sugg?.livello === 'dedicato'}
@@ -1009,4 +1123,23 @@
       <p class="text-xs text-red-400">Correggi i campi evidenziati prima di procedere</p>
     {/if}
   </div>
+
+  {#if f2Open && f2ClienteId !== null}
+    <StoricoPrezziClienteModal
+      clienteId={f2ClienteId}
+      clienteNome={f2ClienteNome}
+      articoloCorrente={f2ArticoloCorrente}
+      documentoVuoto={f2DocumentoVuoto}
+      on:close={chiudiF2}
+      on:select={onF2Select}
+      on:ricarica={onF2Ricarica}
+    />
+  {/if}
+
+  {#if clienteF2Open}
+    <ClientiFrequentiModal
+      on:close={chiudiClienteF2}
+      on:select={onClienteF2Select}
+    />
+  {/if}
 </div>

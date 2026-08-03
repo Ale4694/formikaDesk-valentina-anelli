@@ -4,6 +4,7 @@
   import { api } from '../../lib/api'
   import type { NuovoRicambio, Ricambio } from '../../lib/types'
   import ConfirmModal from '../ConfirmModal.svelte'
+  import StoricoVenditeArticoloModal from '../StoricoVenditeArticoloModal.svelte'
 
   const PAGE_SIZE = 50
   let page = 0
@@ -257,6 +258,35 @@
     confirmOpen = true
   }
 
+  // Pannello F2: storico vendite dell'articolo, speculare a quello cliente
+  // in NuovaFattura.svelte. Stesso gesto, stesso significato: "mostrami lo
+  // storico rilevante per il campo/riga su cui sono".
+  let f2Open = false
+  let f2Articolo: Ricambio | null = null
+  let f2TriggerEl: HTMLElement | null = null
+
+  function apriF2(r: Ricambio, el: HTMLElement) {
+    f2Articolo = r
+    f2TriggerEl = el
+    f2Open = true
+  }
+
+  async function chiudiF2() {
+    f2Open = false
+    f2Articolo = null
+    const el = f2TriggerEl
+    f2TriggerEl = null
+    // A differenza dell'<input> di NuovaFattura, qui il trigger è una
+    // <tr tabindex="0">: chiamare focus() in modo sincrono corre contro
+    // lo smontaggio del pannello (che al momento della chiamata ha ancora
+    // il campo di ricerca a fuoco) e nel webview la richiesta di focus
+    // può perdere quella corsa, lasciando la riga senza focus e F2 muto
+    // alla pressione successiva. tick() aspetta che il DOM sia aggiornato
+    // prima di richiedere il focus.
+    await tick()
+    el?.focus()
+  }
+
   async function eseguiElimina() {
     if (pendingDeleteId === null) return
     const id = pendingDeleteId
@@ -430,10 +460,14 @@
       </thead>
       <tbody class="divide-y divide-gray-800">
         {#each pageItems as r (r.id)}
-          <tr class="transition-colors duration-100
+          <tr
+            tabindex="0"
+            class="transition-colors duration-100 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-brand-500/60
             {r.giacenza < r.giacenza_minima
               ? 'bg-red-950/20 hover:bg-red-950/30'
-              : 'hover:bg-gray-800/50'}">
+              : 'hover:bg-gray-800/50'}"
+            on:keydown={e => { if (e.key === 'F2') { e.preventDefault(); apriF2(r, e.currentTarget as HTMLElement) } }}
+          >
             <td class="px-4 py-3 font-mono text-xs text-brand-400">{r.codice_interno}</td>
             <td class="px-4 py-3 text-gray-200">
               {r.descrizione}
@@ -546,4 +580,13 @@
       </div>
     {/if}
   </div>
+
+  {#if f2Open && f2Articolo}
+    <StoricoVenditeArticoloModal
+      articoloId={f2Articolo.id}
+      articoloCodice={f2Articolo.codice_interno}
+      articoloDescrizione={f2Articolo.descrizione}
+      on:close={chiudiF2}
+    />
+  {/if}
 </div>

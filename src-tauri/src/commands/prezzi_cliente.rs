@@ -1,6 +1,6 @@
 use crate::models::{
-    ArticoloVendutoCliente, DocumentoCliente, MovimentoVenditaCliente,
-    NuovoPrezzoCliente, PrezzoCliente, PrezzoSuggerito, RiepilogoCliente,
+    ArticoloVendutoCliente, ClienteVendutoArticolo, DocumentoCliente, MovimentoVenditaCliente,
+    NuovoPrezzoCliente, PrezzoCliente, PrezzoSuggerito, RiepilogoCliente, UltimoDocumentoVendita,
 };
 use crate::{AppError, AppState};
 use tauri::State;
@@ -127,6 +127,62 @@ pub async fn get_movimenti_articolo_cliente(
          ORDER BY data DESC, documento_id DESC",
     )
     .bind(cliente_id)
+    .bind(articolo_id)
+    .fetch_all(&state.db)
+    .await?;
+    Ok(rows)
+}
+
+/// Ultimo documento di vendita conclusa del cliente (da v_storico_vendite,
+/// che esclude bozze/annullati/preventivi/note di credito/ddt_fornitore:
+/// vedi commento sulla view). None se il cliente non ha ancora vendite.
+/// Alimenta il pulsante "Ricarica ultimo documento" del pannello F2: qui
+/// arrivano solo i metadati per l'etichetta, le righe si leggono con
+/// get_documento cosi' non si duplica la logica di lettura completa.
+#[tauri::command]
+pub async fn get_ultimo_documento_vendita_cliente(
+    cliente_id: i64,
+    state: State<'_, AppState>,
+) -> Result<Option<UltimoDocumentoVendita>, AppError> {
+    let row = sqlx::query_as::<_, UltimoDocumentoVendita>(
+        "SELECT DISTINCT documento_id, tipo_documento, numero_documento AS numero, data
+         FROM v_storico_vendite
+         WHERE cliente_id = ?
+         ORDER BY data DESC, documento_id DESC
+         LIMIT 1",
+    )
+    .bind(cliente_id)
+    .fetch_optional(&state.db)
+    .await?;
+    Ok(row)
+}
+
+/// Per un articolo, tutti i clienti a cui e' stato venduto: prezzo
+/// ultimo, numero vendite, data ultima vendita. Speculare a
+/// get_articoli_venduti_cliente ma raggruppato per cliente. Alimenta
+/// il pannello F2 di Magazzino.
+#[tauri::command]
+pub async fn get_clienti_per_articolo(
+    articolo_id: i64,
+    state: State<'_, AppState>,
+) -> Result<Vec<ClienteVendutoArticolo>, AppError> {
+    let rows = sqlx::query_as::<_, ClienteVendutoArticolo>(
+        "SELECT
+            c.id AS cliente_id,
+            c.ragione_sociale AS ragione_sociale,
+            (SELECT v2.prezzo_unitario FROM v_storico_vendite v2
+             WHERE v2.cliente_id = v.cliente_id
+               AND v2.articolo_id = v.articolo_id
+             ORDER BY v2.data DESC, v2.documento_id DESC LIMIT 1
+            ) AS prezzo_ultimo,
+            COUNT(*) AS numero_vendite,
+            MAX(v.data) AS ultima_vendita
+         FROM v_storico_vendite v
+         JOIN clienti c ON c.id = v.cliente_id
+         WHERE v.articolo_id = ?
+         GROUP BY v.cliente_id, c.ragione_sociale
+         ORDER BY ultima_vendita DESC",
+    )
     .bind(articolo_id)
     .fetch_all(&state.db)
     .await?;

@@ -241,6 +241,21 @@ pub struct ClienteAttivo {
     pub fatturato: f64,
 }
 
+/// Top clienti per numero di documenti dell'anno corrente (non per
+/// fatturato: e' un ordinamento diverso da ClienteAttivo, pensato per
+/// il pannello F2 sul campo cliente di NuovaFattura.svelte, dove serve
+/// "chi torna spesso" per compilare in fretta, non "chi vale di piu'").
+/// Conta tutti i tipi di documento (non solo fattura): qui l'obiettivo
+/// e' la frequenza di contatto col cliente, non il fatturato fiscale.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ClienteTopDocumenti {
+    pub cliente_id: i64,
+    pub ragione_sociale: String,
+    pub citta: Option<String>,
+    pub numero_documenti: i64,
+    pub ultimo_documento: String,
+}
+
 // Carico rapido barcode
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -508,6 +523,32 @@ pub struct MovimentoVenditaCliente {
     pub prezzo_unitario: f64,
     pub sconto_perc: f64,
     pub totale_riga: f64,
+}
+
+/// Metadati del documento di vendita piu' recente di un cliente, letto
+/// da v_storico_vendite (solo tipi di vendita conclusa). Alimenta il
+/// pulsante "Ricarica ultimo documento" nel pannello F2 di NuovaFattura:
+/// le righe vere e proprie si recuperano poi con get_documento(documento_id),
+/// cosi' si riusa la stessa lettura completa gia' usata per la modifica.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct UltimoDocumentoVendita {
+    pub documento_id: i64,
+    pub tipo_documento: String,
+    pub numero: String,
+    pub data: String,
+}
+
+/// Aggregato per cliente di un singolo articolo: speculare a
+/// ArticoloVendutoCliente ma raggruppato per cliente invece che per
+/// articolo. Alimenta il pannello F2 di Magazzino ("a chi ho venduto
+/// questo articolo e a che prezzo").
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ClienteVendutoArticolo {
+    pub cliente_id: i64,
+    pub ragione_sociale: String,
+    pub prezzo_ultimo: f64,
+    pub numero_vendite: i64,
+    pub ultima_vendita: String,
 }
 
 /// Cascata di risoluzione prezzo per un cliente+articolo.

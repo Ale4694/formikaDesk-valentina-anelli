@@ -1,5 +1,5 @@
 use crate::{AppError, AppState};
-use crate::models::{ClienteAttivo, DashboardStats};
+use crate::models::{ClienteAttivo, ClienteTopDocumenti, DashboardStats};
 use tauri::State;
 
 #[tauri::command]
@@ -95,6 +95,32 @@ pub async fn get_clienti_piu_attivi(state: State<'_, AppState>) -> Result<Vec<Cl
          GROUP BY c.id, c.ragione_sociale
          ORDER BY fatturato DESC
          LIMIT 5",
+    )
+    .fetch_all(&state.db)
+    .await?;
+    Ok(rows)
+}
+
+/// Top 8 clienti per numero di documenti dell'anno corrente (non per
+/// fatturato: vedi commento su ClienteTopDocumenti). Alimenta il
+/// pannello F2 sul campo cliente di NuovaFattura.svelte: chi torna
+/// spesso, per compilare il documento in fretta.
+#[tauri::command]
+pub async fn get_clienti_top_documenti(state: State<'_, AppState>) -> Result<Vec<ClienteTopDocumenti>, AppError> {
+    let rows = sqlx::query_as::<_, ClienteTopDocumenti>(
+        "SELECT
+            c.id AS cliente_id,
+            c.ragione_sociale AS ragione_sociale,
+            c.citta AS citta,
+            COUNT(*) AS numero_documenti,
+            MAX(d.data) AS ultimo_documento
+         FROM documenti d
+         JOIN clienti c ON c.id = d.cliente_id
+         WHERE d.stato NOT IN ('annullato', 'bozza')
+           AND strftime('%Y', d.data) = strftime('%Y', 'now')
+         GROUP BY c.id, c.ragione_sociale, c.citta
+         ORDER BY numero_documenti DESC
+         LIMIT 8",
     )
     .fetch_all(&state.db)
     .await?;

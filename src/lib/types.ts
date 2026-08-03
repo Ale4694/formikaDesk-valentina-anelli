@@ -217,6 +217,14 @@ export interface ClienteAttivo {
   fatturato: number
 }
 
+export interface ClienteTopDocumenti {
+  cliente_id: number
+  ragione_sociale: string
+  citta: string | null
+  numero_documenti: number
+  ultimo_documento: string
+}
+
 export interface AppError {
   type: 'Database' | 'NotFound' | 'Validation' | 'Internal'
   message: string
@@ -527,6 +535,21 @@ export interface MovimentoVenditaCliente {
   prezzo_unitario: number
   sconto_perc: number
   totale_riga: number
+}
+
+export interface UltimoDocumentoVendita {
+  documento_id: number
+  tipo_documento: TipoDocumento
+  numero: string
+  data: string
+}
+
+export interface ClienteVendutoArticolo {
+  cliente_id: number
+  ragione_sociale: string
+  prezzo_ultimo: number
+  numero_vendite: number
+  ultima_vendita: string
 }
 
 export type PrezzoSuggerito =

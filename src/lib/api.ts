@@ -14,7 +14,7 @@ import type {
   RigaDdtParsed, RigaDdtImport, ParseDdtResult, ImportaDdtResult,
   PrezzoCliente, NuovoPrezzoCliente, ArticoloVendutoCliente,
   MovimentoVenditaCliente, PrezzoSuggerito, DocumentoCliente, RiepilogoCliente,
-  ClienteAttivo,
+  ClienteAttivo, UltimoDocumentoVendita, ClienteVendutoArticolo, ClienteTopDocumenti,
 } from './types'
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -30,6 +30,7 @@ export const api = {
   dashboard: {
     getStats: () => call<DashboardStats>('get_dashboard_stats'),
     getClientiPiuAttivi: () => call<ClienteAttivo[]>('get_clienti_piu_attivi'),
+    getClientiTopDocumenti: () => call<ClienteTopDocumenti[]>('get_clienti_top_documenti'),
   },
   clienti: {
     getAll: () => call<Cliente[]>('get_all_clienti'),
@@ -147,8 +148,14 @@ export const api = {
       call<MovimentoVenditaCliente[]>('get_movimenti_cliente', { clienteId }),
     getMovimentiArticolo: (clienteId: number, articoloId: number) =>
       call<MovimentoVenditaCliente[]>('get_movimenti_articolo_cliente', { clienteId, articoloId }),
+    getUltimoDocumento: (clienteId: number) =>
+      call<UltimoDocumentoVendita | null>('get_ultimo_documento_vendita_cliente', { clienteId }),
     getPrezzoSuggerito: (clienteId: number | null, ricambioId: number) =>
       call<PrezzoSuggerito>('get_prezzo_suggerito', { clienteId, ricambioId }),
+  },
+  storicoArticolo: {
+    getClientiPerArticolo: (articoloId: number) =>
+      call<ClienteVendutoArticolo[]>('get_clienti_per_articolo', { articoloId }),
   },
   prezziCliente: {
     list: (clienteId: number) => call<PrezzoCliente[]>('list_prezzi_cliente', { clienteId }),
