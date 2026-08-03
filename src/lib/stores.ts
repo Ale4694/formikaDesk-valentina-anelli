@@ -1,27 +1,9 @@
 import { writable, derived } from 'svelte/store'
 import type { Cliente, Fornitore, Ricambio, Documento, DashboardStats, View, DocumentoCompleto, LicenseInfo, AppConfig, ReportMensile } from './types'
 
-function getStoredView(): View {
-  try {
-    return (localStorage.getItem('autoparts_view') as View) ?? 'dashboard'
-  } catch {
-    return 'dashboard'
-  }
-}
+try { localStorage.removeItem('autoparts_view') } catch {}
 
-function createPersistedView() {
-  const { subscribe, set, update } = writable<View>(getStoredView())
-  return {
-    subscribe,
-    set: (v: View) => {
-      try { localStorage.setItem('autoparts_view', v) } catch {}
-      set(v)
-    },
-    update,
-  }
-}
-
-export const currentView = createPersistedView()
+export const currentView = writable<View>('dashboard')
 export const isLoading = writable(false)
 export const globalError = writable<string | null>(null)
 
